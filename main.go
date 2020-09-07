@@ -9,28 +9,45 @@ import (
 	"time"
 
 	"github.com/caddyserver/certmagic"
+	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
+	"github.com/sirupsen/logrus"
+	"golang.org/x/crypto/argon2"
 )
+
+var salt = []byte("kcqbBue2Sr7U5yrpEaZFpGVdR6z4jfUeSECy6zuYDXktgxhFCxMtEkV9")
+
+type Tobab struct {
+	fqdn   string
+	key    []byte
+	config Config
+	logger *logrus.Entry
+	maxAge time.Duration
+}
 
 func main() {
 	cfg := Config{
-		CertDir: "/home/erwin/certs",
-		Hosts: []Host{
-			{
-				Host:    "tobab.erwin.land",
+		Hostname:    "login.tobab.erwin.land",
+		CookieScope: ".erwin.land",
+		Secret:      "asldfkjaslkdf",
+		CertDir:     "/home/erwin/certs",
+		Hosts: map[string]Host{
+			"tobab.erwin.land": {
 				Backend: "https://postman-echo.com",
 				Type:    "http",
 			},
-			{
-				Host:    "echo.tobab.erwin.land",
+			"echo.tobab.erwin.land": {
 				Backend: "http://httpbin.org",
 				Type:    "http",
 			},
-			{
-				Host:    "ip.tobab.erwin.land",
-				Backend: "https://ifconfig.co",
-				Type:    "http",
+			"ip.tobab.erwin.land": {
+				Backend:      "https://ifconfig.co",
+				Type:         "http",
+				AllowedGlobs: []string{"admin"},
 			},
+		},
+		Globs: map[string]string{
+			"admin": "*@gnur.nl",
 		},
 		Email:   "test@dekeijzer.xyz",
 		Staging: true,
@@ -43,21 +60,36 @@ func main() {
 		certmagic.DefaultACME.CA = certmagic.LetsEncryptStagingCA
 	}
 
-	r := mux.NewRouter()
-	var hosts []string
+	key := argon2.IDKey([]byte(cfg.Secret), salt, 4, 4*1024, 2, 32)
 
-	for _, conf := range cfg.Hosts {
-		proxy, err := generateProxy(conf)
+	logger := logrus.New()
+	logger.SetLevel(logrus.DebugLevel)
+
+	app := Tobab{
+		key:    key,
+		config: cfg,
+		logger: logger.WithField("source", "tobab"),
+		maxAge: 720 * time.Hour,
+		fqdn:   "https://" + cfg.Hostname,
+	}
+
+	r := mux.NewRouter()
+	hosts := []string{app.config.Hostname}
+
+	for h, conf := range cfg.Hosts {
+		proxy, err := generateProxy(h, conf.Backend)
 		if err != nil {
 			fmt.Println(err)
 			return
 		}
 
-		r.Host(conf.Host).PathPrefix("/").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		r.Host(h).PathPrefix("/").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			proxy.ServeHTTP(w, r)
 		})
-		hosts = append(hosts, conf.Host)
+		hosts = append(hosts, h)
 	}
+	r.Use(handlers.CompressHandler)
+	r.Use(app.getRBACMiddleware())
 
 	//log.Fatal(autotls.RunWithManager(r, &m))
 	err := certmagic.HTTPS(hosts, r)
@@ -66,26 +98,18 @@ func main() {
 	}
 }
 
-func generateProxy(host Host) (http.Handler, error) {
-	url, err := url.Parse(host.Backend)
+func generateProxy(host, backend string) (http.Handler, error) {
+	url, err := url.Parse(backend)
 	if err != nil {
 		return nil, err
 	}
 	proxy := &httputil.ReverseProxy{Director: func(req *http.Request) {
 		req.Header.Add("X-Forwarded-Host", url.Hostname())
-		req.Header.Add("X-Origin-Host", host.Host)
+		req.Header.Add("X-Origin-Host", host)
 		req.Host = url.Host
 
 		url.Path = req.URL.Path
 		req.URL = url
-
-		dump, err := httputil.DumpRequest(req, true)
-		if err != nil {
-			fmt.Println(err)
-		} else {
-			fmt.Println(req.URL)
-			fmt.Println(string(dump))
-		}
 
 	}, Transport: &http.Transport{
 		Dial: (&net.Dialer{

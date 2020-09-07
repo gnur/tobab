@@ -1,14 +1,19 @@
 package main
 
 type Config struct {
-	CertDir string
-	Hosts   []Host
-	Email   string
-	Staging bool
+	Hostname    string
+	CookieScope string
+	Secret      string
+	CertDir     string
+	Hosts       map[string]Host
+	Email       string
+	Staging     bool
+	Globs       map[string]string
 }
 
 type Host struct {
-	Host    string
-	Backend string
-	Type    string
+	Backend      string
+	Type         string
+	AllowedGlobs []string
+	Public       bool
 }
