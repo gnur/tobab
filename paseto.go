@@ -18,37 +18,52 @@ func (app *Tobab) extractUser(r *http.Request) (string, error) {
 
 	c, err := r.Cookie("X-Tobab-Token")
 	if err != nil {
+		app.logger.WithError(err).Error("unable to read cookie")
 		return "", ErrUnauthenticatedRequest
 	}
 
-	// Decrypt data
-	var newJsonToken paseto.JSONToken
-	var newFooter string
-	err = v2.Decrypt(c.Value, app.key, &newJsonToken, &newFooter)
+	t, err := app.decryptToken(c.Value)
 	if err != nil {
-		app.logger.WithError(err).Warning("Unable to parse cookie token")
-		return "", ErrInvalidToken
+		return "", err
 	}
 
-	user := newJsonToken.Subject
-
-	return user, nil
+	return t.Subject, nil
 }
 
-func (app *Tobab) newToken(u string) (string, error) {
+func (app *Tobab) decryptToken(t string) (*paseto.JSONToken, error) {
+	// Decrypt data
+	var token paseto.JSONToken
+	var footer string
+	err := v2.Decrypt(t, app.key, &token, &footer)
+	if err != nil {
+		app.logger.WithError(err).Warning("Unable to parse cookie token")
+		return nil, ErrInvalidToken
+	}
+	err = token.Validate()
+	if err != nil {
+		return nil, err
+	}
+
+	return &token, nil
+}
+
+func (app *Tobab) newToken(u string, claims map[string]string) (string, error) {
 	now := time.Now()
 	exp := now.Add(app.maxAge)
 	nbt := now
 
 	jsonToken := paseto.JSONToken{
-		Issuer:     app.config.Hostname,
+		Issuer:     app.fqdn,
 		Subject:    u,
 		IssuedAt:   now,
 		Expiration: exp,
 		NotBefore:  nbt,
 	}
-	// Add custom claim    to the token
-	jsonToken.Set("data", "this is a signed message")
+
+	for k, v := range claims {
+		jsonToken.Set(k, v)
+	}
+
 	token, err := v2.Encrypt(app.key, jsonToken, footer)
 	if err != nil {
 		return "", err

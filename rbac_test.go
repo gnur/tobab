@@ -4,6 +4,7 @@ import "testing"
 
 func Test_hasAccess(t *testing.T) {
 	c := Config{
+		Hostname: "login.example.com",
 		Hosts: map[string]Host{
 			"noone.example.com": {
 				Public:       false,

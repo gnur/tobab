@@ -6,8 +6,10 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"os"
 	"time"
 
+	"github.com/BurntSushi/toml"
 	"github.com/caddyserver/certmagic"
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
@@ -26,31 +28,21 @@ type Tobab struct {
 }
 
 func main() {
-	cfg := Config{
-		Hostname:    "login.tobab.erwin.land",
-		CookieScope: ".erwin.land",
-		Secret:      "asldfkjaslkdf",
-		CertDir:     "/home/erwin/certs",
-		Hosts: map[string]Host{
-			"tobab.erwin.land": {
-				Backend: "https://postman-echo.com",
-				Type:    "http",
-			},
-			"echo.tobab.erwin.land": {
-				Backend: "http://httpbin.org",
-				Type:    "http",
-			},
-			"ip.tobab.erwin.land": {
-				Backend:      "https://ifconfig.co",
-				Type:         "http",
-				AllowedGlobs: []string{"admin"},
-			},
-		},
-		Globs: map[string]string{
-			"admin": "*@gnur.nl",
-		},
-		Email:   "test@dekeijzer.xyz",
-		Staging: true,
+	logger := logrus.New()
+
+	confLoc := os.Getenv("TOBAB_CONFIG")
+	if confLoc == "" {
+		confLoc = "./tobab.toml"
+	}
+
+	var cfg Config
+	_, err := toml.DecodeFile(confLoc, &cfg)
+	if err != nil {
+		logger.WithError(err).Fatal("Could not read config")
+	}
+
+	if lvl, err := logrus.ParseLevel(cfg.Loglevel); err == nil {
+		logger.SetLevel(lvl)
 	}
 
 	certmagic.DefaultACME.Agreed = true
@@ -61,9 +53,6 @@ func main() {
 	}
 
 	key := argon2.IDKey([]byte(cfg.Secret), salt, 4, 4*1024, 2, 32)
-
-	logger := logrus.New()
-	logger.SetLevel(logrus.DebugLevel)
 
 	app := Tobab{
 		key:    key,
@@ -77,6 +66,10 @@ func main() {
 	hosts := []string{app.config.Hostname}
 
 	for h, conf := range cfg.Hosts {
+		if conf.Type != "http" {
+			app.logger.WithField("type", conf.Type).Fatal("Unsupported type, currently only http is supported")
+		}
+
 		proxy, err := generateProxy(h, conf.Backend)
 		if err != nil {
 			fmt.Println(err)
@@ -88,11 +81,20 @@ func main() {
 		})
 		hosts = append(hosts, h)
 	}
+
+	if _, ok := cfg.Hosts[app.config.Hostname]; !ok {
+		cfg.Hosts[app.config.Hostname] = Host{
+			Public: true,
+		}
+	}
+
+	tobabRoutes := r.Host(app.config.Hostname).Subrouter()
+	app.setupgoth(tobabRoutes)
+
 	r.Use(handlers.CompressHandler)
 	r.Use(app.getRBACMiddleware())
 
-	//log.Fatal(autotls.RunWithManager(r, &m))
-	err := certmagic.HTTPS(hosts, r)
+	err = certmagic.HTTPS(hosts, r)
 	if err != nil {
 		fmt.Println(err)
 	}

@@ -2,6 +2,8 @@ package main
 
 import (
 	"net/http"
+	"net/url"
+	"strings"
 
 	"github.com/sirupsen/logrus"
 )
@@ -24,7 +26,21 @@ func (app *Tobab) getRBACMiddleware() func(http.Handler) http.Handler {
 
 			if !hasAccess(u, h, app.config) {
 				if err == ErrUnauthenticatedRequest {
+					redirectURL := url.URL{
+						Host:   h,
+						Path:   r.URL.String(),
+						Scheme: "https",
+					}
 					app.logger.Info("should redirect")
+					c := http.Cookie{
+						Domain:   app.config.CookieScope,
+						Secure:   true,
+						HttpOnly: true,
+						Value:    redirectURL.String(),
+						Path:     "/",
+						Name:     "X-Tobab-Source",
+					}
+					http.SetCookie(w, &c)
 					http.Redirect(w, r, app.fqdn, 302)
 				} else {
 					app.logger.Info("Should return 403")
@@ -34,7 +50,17 @@ func (app *Tobab) getRBACMiddleware() func(http.Handler) http.Handler {
 				return
 			}
 
-			// Call the next handler, which can be another middleware in the chain, or the final handler.
+			r.Header.Add("X-Tobab-User", u)
+
+			//get all cookies, clear them, and then re-add the ones that are not tobab specific
+			cookies := r.Cookies()
+			r.Header.Del("Cookie")
+			for _, c := range cookies {
+				if !strings.HasPrefix(c.Name, "X-Tobab") {
+					r.AddCookie(c)
+				}
+			}
+
 			next.ServeHTTP(w, r)
 		})
 	}
