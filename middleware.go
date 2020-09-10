@@ -63,12 +63,14 @@ func (app *Tobab) getRBACMiddleware() func(http.Handler) http.Handler {
 
 			r.Header.Add("X-Tobab-User", u)
 
-			//get all cookies, clear them, and then re-add the ones that are not tobab specific
-			cookies := r.Cookies()
-			r.Header.Del("Cookie")
-			for _, c := range cookies {
-				if !strings.HasPrefix(c.Name, "X-Tobab") {
-					r.AddCookie(c)
+			if h != app.config.Hostname {
+				//get all cookies, clear them, and then re-add the ones that are not tobab specific
+				cookies := r.Cookies()
+				r.Header.Del("Cookie")
+				for _, c := range cookies {
+					if !strings.HasPrefix(c.Name, "X-Tobab") {
+						r.AddCookie(c)
+					}
 				}
 			}
 
