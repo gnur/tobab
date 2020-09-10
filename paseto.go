@@ -18,7 +18,6 @@ func (app *Tobab) extractUser(r *http.Request) (string, error) {
 
 	c, err := r.Cookie("X-Tobab-Token")
 	if err != nil {
-		app.logger.WithError(err).Error("unable to read cookie")
 		return "", ErrUnauthenticatedRequest
 	}
 
@@ -36,7 +35,6 @@ func (app *Tobab) decryptToken(t string) (*paseto.JSONToken, error) {
 	var footer string
 	err := v2.Decrypt(t, app.key, &token, &footer)
 	if err != nil {
-		app.logger.WithError(err).Warning("Unable to parse cookie token")
 		return nil, ErrInvalidToken
 	}
 	err = token.Validate()

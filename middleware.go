@@ -14,9 +14,22 @@ func (app *Tobab) getRBACMiddleware() func(http.Handler) http.Handler {
 
 			h := r.Host
 			u, err := app.extractUser(r)
-			if err != nil {
-				//this shouldn't happen
+			if err != nil && err != ErrUnauthenticatedRequest {
+				//this shouldn't happen unless someone tampered with a cookie manually
 				app.logger.WithError(err).Error("Unable to extract user")
+				//invalid cookie is present, delete it and force re-auth
+				c := http.Cookie{
+					Name:     "X-Tobab-Token",
+					Domain:   app.config.CookieScope,
+					SameSite: http.SameSiteLaxMode,
+					Secure:   true,
+					HttpOnly: true,
+					MaxAge:   -1,
+					Path:     "/",
+				}
+				http.SetCookie(w, &c)
+				http.Error(w, "bad request", http.StatusBadRequest)
+				return
 			}
 			app.logger.WithFields(logrus.Fields{
 				"host": h,
@@ -31,7 +44,6 @@ func (app *Tobab) getRBACMiddleware() func(http.Handler) http.Handler {
 						Path:   r.URL.String(),
 						Scheme: "https",
 					}
-					app.logger.Info("should redirect")
 					c := http.Cookie{
 						Domain:   app.config.CookieScope,
 						Secure:   true,
@@ -43,7 +55,6 @@ func (app *Tobab) getRBACMiddleware() func(http.Handler) http.Handler {
 					http.SetCookie(w, &c)
 					http.Redirect(w, r, app.fqdn, 302)
 				} else {
-					app.logger.Info("Should return 403")
 					http.Error(w, "access denied", http.StatusUnauthorized)
 				}
 

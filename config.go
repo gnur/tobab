@@ -4,6 +4,7 @@ type Config struct {
 	Hostname     string
 	CookieScope  string
 	Secret       string
+	Salt         string
 	CertDir      string
 	Hosts        map[string]Host
 	Email        string

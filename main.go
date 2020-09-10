@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/rand"
 	"fmt"
 	"net"
 	"net/http"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/BurntSushi/toml"
 	"github.com/caddyserver/certmagic"
+	"github.com/gnur/tobab/muxlogger"
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 	"github.com/sirupsen/logrus"
@@ -29,6 +31,10 @@ type Tobab struct {
 
 func main() {
 	logger := logrus.New()
+	logger.SetFormatter(&logrus.TextFormatter{
+		ForceColors:   true,
+		FullTimestamp: true,
+	})
 
 	confLoc := os.Getenv("TOBAB_CONFIG")
 	if confLoc == "" {
@@ -52,7 +58,28 @@ func main() {
 		certmagic.DefaultACME.CA = certmagic.LetsEncryptStagingCA
 	}
 
-	key := argon2.IDKey([]byte(cfg.Secret), salt, 4, 4*1024, 2, 32)
+	//only use provided salt if it makes any sense at all
+	//otherwise use the default salt, shouldn't be a problem
+	if len(cfg.Salt) > 2 {
+		salt = []byte(cfg.Salt)
+	}
+
+	secret := []byte(cfg.Secret)
+	//only use provided secret if is it provided
+	if len(secret) < 1 {
+		b := make([]byte, 32)
+		_, err := rand.Read(b)
+		if err != nil {
+			logger.WithError(err).Fatal("unable to generate secure secret, please provide it in config")
+		}
+		secret = b
+	}
+
+	//set secret that goth uses
+	os.Setenv("SESSION_SECRET", string(secret))
+
+	//transform provided salt and secret into a 32 byte key that can be used by paseto
+	key := argon2.IDKey(secret, salt, 4, 4*1024, 2, 32)
 
 	app := Tobab{
 		key:    key,
@@ -91,6 +118,7 @@ func main() {
 	tobabRoutes := r.Host(app.config.Hostname).Subrouter()
 	app.setupgoth(tobabRoutes)
 
+	r.Use(muxlogger.NewLogger(app.logger).Middleware)
 	r.Use(handlers.CompressHandler)
 	r.Use(app.getRBACMiddleware())
 
