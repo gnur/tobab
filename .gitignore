@@ -20,3 +20,4 @@ dist/*
 request.http
 bin/deploy
 ubby.toml
+pkged.go

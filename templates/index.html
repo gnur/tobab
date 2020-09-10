@@ -1,0 +1,64 @@
+{{define "index.html"}}
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>tobab</title>
+</head>
+
+<style>
+    html,
+    body {
+        height: 100%;
+    }
+
+    body {
+        margin: 0;
+        background-color: rgb(15, 0, 36);
+    }
+
+    .flex-container {
+        height: 100%;
+        margin: 0;
+        display: -webkit-box;
+        display: -moz-box;
+        display: -ms-flexbox;
+        display: -webkit-flex;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .row {
+        font-family: Helvetica, Arial, sans-serif;
+        color: #FFFFFF;
+        width: auto;
+        background-color: rgb(58, 40, 61);
+        padding: 50px;
+        border-radius: 20px;
+    }
+
+    a,
+    a:hover,
+    a:visited,
+    a:valid {
+        color: rgb(247, 56, 253);
+        text-decoration: none;
+        font-weight: bold;
+        font-size: 2em;
+    }
+</style>
+
+<body>
+    <div class="flex-container">
+        <div class="row">
+            <h1>Hi {{.User}}</h1><br />
+            {{range $key,$value:=.Providers}}
+            <p><a href="/auth/{{$value}}">Log in with {{index $.ProvidersMap $value}}</a></p>
+            {{end}}
+        </div>
+    </div>
+</body>
+
+</html>
+{{end}}

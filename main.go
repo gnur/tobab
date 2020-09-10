@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/rand"
 	"fmt"
+	"html/template"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -22,11 +23,12 @@ import (
 var salt = []byte("kcqbBue2Sr7U5yrpEaZFpGVdR6z4jfUeSECy6zuYDXktgxhFCxMtEkV9")
 
 type Tobab struct {
-	fqdn   string
-	key    []byte
-	config Config
-	logger *logrus.Entry
-	maxAge time.Duration
+	fqdn      string
+	key       []byte
+	config    Config
+	logger    *logrus.Entry
+	maxAge    time.Duration
+	templates *template.Template
 }
 
 func main() {
@@ -87,6 +89,11 @@ func main() {
 		logger: logger.WithField("source", "tobab"),
 		maxAge: 720 * time.Hour,
 		fqdn:   "https://" + cfg.Hostname,
+	}
+
+	app.templates, err = loadTemplates()
+	if err != nil {
+		logger.WithError(err).Fatal("unable to load templates")
 	}
 
 	r := mux.NewRouter()

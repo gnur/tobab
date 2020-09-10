@@ -2,10 +2,8 @@ package main
 
 import (
 	"net/http"
-	"text/template"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/gorilla/mux"
 	"github.com/markbates/goth"
 	"github.com/markbates/goth/gothic"
@@ -53,8 +51,6 @@ func (app *Tobab) setupgoth(r *mux.Router) {
 
 		http.SetCookie(w, &c)
 
-		spew.Dump(user)
-
 		cr, err := r.Cookie("X-Tobab-Source")
 		if err != nil {
 			http.Redirect(w, r, "/", 302)
@@ -65,7 +61,6 @@ func (app *Tobab) setupgoth(r *mux.Router) {
 	})
 
 	r.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		t, _ := template.New("foo").Parse(indexTemplate)
 		user, err := app.extractUser(r)
 		providerIndex := &ProviderIndex{Providers: []string{"google"}, ProvidersMap: map[string]string{"google": "Google"}}
 		if err == nil {
@@ -73,7 +68,10 @@ func (app *Tobab) setupgoth(r *mux.Router) {
 		} else {
 			app.logger.WithError(err).Error("unable to get user from request")
 		}
-		t.Execute(w, providerIndex)
+		err = app.templates.ExecuteTemplate(w, "index.html", providerIndex)
+		if err != nil {
+			app.logger.WithError(err).Error("failed executing template")
+		}
 	})
 }
 
@@ -82,22 +80,3 @@ type ProviderIndex struct {
 	ProvidersMap map[string]string
 	User         string
 }
-
-var indexTemplate = `<h1>Hi {{.User}}</h1><br/>
-{{range $key,$value:=.Providers}}
-	<p><a href="/auth/{{$value}}">Log in with {{index $.ProvidersMap $value}}</a></p>
-{{end}}`
-
-var userTemplate = `
-<p><a href="/logout/{{.Provider}}">logout</a></p>
-<p>Name: {{.Name}} [{{.LastName}}, {{.FirstName}}]</p>
-<p>Email: {{.Email}}</p>
-<p>NickName: {{.NickName}}</p>
-<p>Location: {{.Location}}</p>
-<p>AvatarURL: {{.AvatarURL}} <img src="{{.AvatarURL}}"></p>
-<p>Description: {{.Description}}</p>
-<p>UserID: {{.UserID}}</p>
-<p>AccessToken: {{.AccessToken}}</p>
-<p>ExpiresAt: {{.ExpiresAt}}</p>
-<p>RefreshToken: {{.RefreshToken}}</p>
-`
