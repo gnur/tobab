@@ -15,7 +15,6 @@
 # vendor/
 
 
-tobab
 dist/*
 request.http
 bin/deploy
