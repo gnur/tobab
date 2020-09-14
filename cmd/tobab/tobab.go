@@ -19,7 +19,13 @@ func (app *Tobab) setTobabRoutes(r *mux.Router) {
 
 	//GET hosts
 	api.HandleFunc("/hosts", func(w http.ResponseWriter, r *http.Request) {
-		js, err := json.Marshal(app.config.Hosts)
+		hosts, err := app.db.GetHosts()
+		if err != nil {
+			app.logger.WithError(err).Error("Failed getting hosts from db")
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		js, err := json.Marshal(hosts)
 		if err != nil {
 			app.logger.WithError(err).Error("Failed marshalling hosts from config into JSON")
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -33,7 +39,7 @@ func (app *Tobab) setTobabRoutes(r *mux.Router) {
 	}).Methods("GET")
 
 	//ADD host
-	api.HandleFunc("/host/{hostname}", func(w http.ResponseWriter, r *http.Request) {
+	api.HandleFunc("/host", func(w http.ResponseWriter, r *http.Request) {
 		var h tobab.Host
 		err := json.NewDecoder(r.Body).Decode(&h)
 		if err != nil {
@@ -41,20 +47,20 @@ func (app *Tobab) setTobabRoutes(r *mux.Router) {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		vars := mux.Vars(r)
-		hostName := vars["hostname"]
 
 		//TODO: create proper valid hostname / host checker
-		if hostName == "" {
+		if h.Hostname == "" {
 			http.Error(w, "invalid hostname provided", http.StatusBadRequest)
 			return
 		}
-		app.lock.Lock()
-		app.dirty = true
-		app.config.Hosts[hostName] = h
-		app.lock.Unlock()
-
+		err = app.db.AddHost(h)
+		if err != nil {
+			app.logger.WithError(err).Error("Failed to unmarshal host from body")
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 		http.Error(w, "ok", 202)
+		go app.restartServer()
 
 	}).Methods("POST")
 

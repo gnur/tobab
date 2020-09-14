@@ -1,30 +1,51 @@
 package tobab
 
+import (
+	matcher "github.com/ryanuber/go-glob"
+)
+
 type Config struct {
 	Hostname     string
 	CookieScope  string
 	Secret       string
 	Salt         string
 	CertDir      string
-	Hosts        map[string]Host
 	Email        string
 	Staging      bool
-	Globs        []Glob
 	GoogleKey    string
 	GoogleSecret string
 	Loglevel     string
-	AdminGlobs   []string
+	DatabasePath string
+	AdminGlobs   []Glob
 }
 
 type Host struct {
-	Hostname     string
-	Backend      string
-	Type         string
-	AllowedGlobs []string
-	Public       bool
+	Hostname string `storm:"id"`
+	Backend  string
+	Type     string
+	Public   bool
+	Globs    []Glob
 }
 
-type Glob struct {
-	Name    string
-	Matcher string
+type Glob string
+
+func (g Glob) Match(s string) bool {
+	return matcher.Glob(string(g), s)
+}
+
+func (h Host) HasAccess(user string) bool {
+
+	if h.Public {
+		return true
+	} else if user == "" {
+		return false
+	}
+
+	for _, g := range h.Globs {
+		if g.Match(user) {
+			return true
+		}
+	}
+
+	return false
 }

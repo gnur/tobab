@@ -1,6 +1,6 @@
 package tobab
 
-type database interface {
+type Database interface {
 	//hosts
 	AddHost(Host) error
 	GetHost(string) (*Host, error)

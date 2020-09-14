@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"crypto/rand"
 	"fmt"
 	"html/template"
@@ -9,14 +10,15 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
+	"os/signal"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/BurntSushi/toml"
 	"github.com/caddyserver/certmagic"
 	"github.com/gnur/tobab"
 	"github.com/gnur/tobab/muxlogger"
+	"github.com/gnur/tobab/storm"
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 	"github.com/sirupsen/logrus"
@@ -33,9 +35,9 @@ type Tobab struct {
 	logger    *logrus.Entry
 	maxAge    time.Duration
 	templates *template.Template
-	lock      sync.Mutex
-	dirty     bool
 	confLoc   string
+	db        tobab.Database
+	server    *http.Server
 }
 
 func main() {
@@ -94,6 +96,11 @@ func main() {
 		version = "unknown"
 	}
 
+	db, err := storm.New(cfg.DatabasePath)
+	if err != nil {
+		logger.WithError(err).WithField("location", cfg.DatabasePath).Fatal("Unable to initialize database")
+	}
+
 	app := Tobab{
 		key:     key,
 		config:  cfg,
@@ -101,37 +108,63 @@ func main() {
 		maxAge:  720 * time.Hour,
 		fqdn:    "https://" + cfg.Hostname,
 		confLoc: confLoc,
+		db:      db,
 	}
 
 	app.templates, err = loadTemplates()
 	if err != nil {
 		logger.WithError(err).Fatal("unable to load templates")
 	}
+	go app.startServer()
+	c := make(chan os.Signal, 1)
+	// We'll accept graceful shutdowns when quit via SIGINT (Ctrl+C)
+	// SIGKILL, SIGQUIT or SIGTERM (Ctrl+/) will not be caught.
+	signal.Notify(c, os.Interrupt)
 
+	// Block until we receive our signal.
+	<-c
+	app.logger.Info("shutting down")
+}
+
+func (app *Tobab) restartServer() {
+
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
+	defer cancel()
+	app.logger.Info("shutting down server")
+	err := app.server.Shutdown(ctx)
+	app.logger.WithError(err).Info("server was shut down")
+
+	go app.startServer()
+}
+
+func (app *Tobab) startServer() {
+	app.logger.Info("starting server")
 	r := mux.NewRouter()
-	hosts := []string{app.config.Hostname}
+	certHosts := []string{app.config.Hostname}
+	var err error
 
-	for h, conf := range cfg.Hosts {
+	app.logger.Debug("loading hosts")
+	hosts, err := app.db.GetHosts()
+	if err != nil {
+		app.logger.WithError(err).Fatal("unable to load hosts")
+	}
+
+	for _, conf := range hosts {
 		if conf.Type != "http" {
 			app.logger.WithField("type", conf.Type).Fatal("Unsupported type, currently only http is supported")
 		}
 
-		proxy, err := generateProxy(h, conf.Backend)
+		proxy, err := generateProxy(conf.Hostname, conf.Backend)
 		if err != nil {
-			fmt.Println(err)
-			return
+			app.logger.WithError(err).WithField("host", conf.Hostname).Error("Failed creating proxy")
+			continue
 		}
 
-		r.Host(h).PathPrefix("/").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		app.logger.WithField("host", conf.Hostname).Debug("starting proxy listener")
+		r.Host(conf.Hostname).PathPrefix("/").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			proxy.ServeHTTP(w, r)
 		})
-		hosts = append(hosts, h)
-	}
-
-	if _, ok := cfg.Hosts[app.config.Hostname]; !ok {
-		cfg.Hosts[app.config.Hostname] = tobab.Host{
-			Public: true,
-		}
+		certHosts = append(certHosts, conf.Hostname)
 	}
 
 	tobabRoutes := r.Host(app.config.Hostname).Subrouter()
@@ -172,10 +205,26 @@ func main() {
 		}
 	}
 
-	err = certmagic.HTTPS(hosts, r)
+	magicListener, err := certmagic.Listen(certHosts)
 	if err != nil {
-		fmt.Println(err)
+		app.logger.WithError(err).Fatal("Failed getting certmagic listener")
 	}
+
+	srv := &http.Server{
+		WriteTimeout: time.Second * 15,
+		ReadTimeout:  time.Second * 15,
+		IdleTimeout:  time.Second * 60,
+		Handler:      r,
+	}
+	go func() {
+		err = srv.Serve(magicListener)
+		if err != nil {
+			if err != http.ErrServerClosed {
+				app.logger.WithError(err).Fatal("Failed starting magic listener")
+			}
+		}
+	}()
+	app.server = srv
 }
 
 func generateProxy(host, backend string) (http.Handler, error) {
