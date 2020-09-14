@@ -14,7 +14,7 @@ It allows you to connect one or more identity providers (currently, only google 
 # non-goals
 
 - Extreme security
-- Reliability (config reloads won't preserve connections as you must kill the server to restart it)
+- Reliability (web server restarts whenever a route is added / modified / deleted)
 
 # getting started
 
@@ -37,27 +37,60 @@ email = "user@example.com"
 googlekey = "google id"
 googlesecret = "google secret"
 loglevel = "debug" #or info, warning, error
-
-[hosts."echo.example.com"]
-backend = "https://httpbin.org"
-type = "http"
-public = true
-
-[hosts."ip.example.com"]
-backend = "https://ifconfig.co"
-type = "http"
-allowedglobs = [ "everyone" ]
-
-[hosts."admin.example.com"]
-backend = "http://localhost:8080"
-type = "http"
-allowedglobs = [ "admin" ]
-
-[globs]
-admin = "*@example.com"
-everyone = "*"
+databasepath = "./tobab.db"
 ```
 
-In this example, the difference between `ip.example.com` and `echo.example.com` is that `echo.example.com` can be used without signing in to any identity provider. But to visit `ip.example.com` you need to be signed in, but anyone can use it once you are signed in.
+### example api call to add a route that only allows signed in users with a example.com email address
 
-In the globs definition a `*` can be any amount of characters, including none at all. In the case of the above admin group any `@example.com` email will be allowed access to `admin.example.com`.
+```http
+# @name addHost
+POST /v1/api/host
+User-Agent: curl/7.64.1
+Accept: */*
+Cookie: X-Tobab-Token=<token>
+
+{
+    "Hostname": "route.example.com",
+    "Backend": "https://example.com",
+    "Type": "http",
+    "Public":false,
+    "Globs": [ "*@example.com" ]
+}
+###
+```
+### example api call to add a route that allows any signed in user
+
+```http
+# @name addHost
+POST /v1/api/host
+User-Agent: curl/7.64.1
+Accept: */*
+Cookie: X-Tobab-Token=<token>
+
+{
+    "Hostname": "route2.example.com",
+    "Backend": "https://example.com",
+    "Type": "http",
+    "Public":false,
+    "Globs": [ "*" ]
+}
+###
+```
+
+### example api call to add a route that allows full access without signing in
+
+```http
+# @name addHost
+POST /v1/api/host
+User-Agent: curl/7.64.1
+Accept: */*
+Cookie: X-Tobab-Token=<token>
+
+{
+    "Hostname": "route2.example.com",
+    "Backend": "https://example.com",
+    "Type": "http",
+    "Public":true,
+}
+###
+```
