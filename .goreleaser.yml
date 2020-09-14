@@ -16,7 +16,7 @@ builds:
       - amd64
       - arm
       - arm64
-    dir: cmd/ui
+    dir: cmd/tobab
 archives:
   - replacements:
       darwin: macOS
