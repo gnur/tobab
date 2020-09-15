@@ -6,6 +6,7 @@ require (
 	github.com/BurntSushi/toml v0.3.1
 	github.com/DataDog/zstd v1.4.5 // indirect
 	github.com/Sereal/Sereal v0.0.0-20200820125258-a016b7cda3f3 // indirect
+	github.com/alecthomas/kong v0.2.11
 	github.com/asdine/storm v2.1.2+incompatible
 	github.com/caddyserver/certmagic v0.11.2
 	github.com/gorilla/handlers v1.5.0
