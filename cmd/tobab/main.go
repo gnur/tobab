@@ -3,9 +3,12 @@ package main
 import (
 	"errors"
 	"fmt"
+	"log"
+	"net/rpc"
 
 	"github.com/alecthomas/kong"
 	"github.com/gnur/tobab"
+	"github.com/gnur/tobab/clirpc"
 )
 
 type Globals struct {
@@ -34,15 +37,58 @@ func (r *ValidateCmd) Run(ctx *Globals) error {
 }
 
 type HostCmd struct {
-	List HostListCmd `cmd`
+	List HostListCmd `cmd help:"list all hosts"`
+	Add  AddHostCmd  `cmd help:"add a new proxy host"`
+}
+
+type AddHostCmd struct {
+	Hostname string       `help:"hostname to listen on"`
+	Backend  string       `help:"Backend to connect to"`
+	Public   bool         `help:"allows all connections"`
+	Type     string       `help:"type of proxy"`
+	Globs    []tobab.Glob `help:"if host is not public, globs of email addresses to allow access"`
+}
+
+func (r *AddHostCmd) Run(ctx *Globals) error {
+	client, err := rpc.DialHTTP("tcp", "localhost:1234")
+	if err != nil {
+		log.Fatal("dialing:", err)
+	}
+	in := &clirpc.AddHostIn{
+		Host: tobab.Host{
+			Hostname: r.Hostname,
+			Backend:  r.Backend,
+			Public:   r.Public,
+			Type:     r.Type,
+			Globs:    r.Globs,
+		},
+	}
+	var out clirpc.Empty
+	err = client.Call("Tobab.AddHost", in, &out)
+	if err != nil {
+		log.Fatal("tobab error:", err)
+	}
+	fmt.Println("host added")
+	return nil
 }
 
 type HostListCmd struct {
-	Test string
 }
 
 func (r *HostListCmd) Run(ctx *Globals) error {
-	fmt.Println("hoi?")
+	client, err := rpc.DialHTTP("tcp", "localhost:1234")
+	if err != nil {
+		log.Fatal("dialing:", err)
+	}
+	in := &clirpc.Empty{}
+	var out clirpc.GetHostsOut
+	err = client.Call("Tobab.GetHosts", in, &out)
+	if err != nil {
+		log.Fatal("arith error:", err)
+	}
+	for _, h := range out.Hosts {
+		h.Print()
+	}
 	return nil
 }
 

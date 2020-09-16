@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httputil"
+	"net/rpc"
 	"net/url"
 	"os"
 	"os/signal"
@@ -95,6 +96,8 @@ func run(confLoc string) {
 		logger.WithError(err).Fatal("unable to load templates")
 	}
 	go app.startServer()
+	go app.startRPCServer()
+
 	c := make(chan os.Signal, 1)
 	// We'll accept graceful shutdowns when quit via SIGINT (Ctrl+C)
 	// SIGKILL, SIGQUIT or SIGTERM (Ctrl+/) will not be caught.
@@ -103,6 +106,26 @@ func run(confLoc string) {
 	// Block until we receive our signal.
 	<-c
 	app.logger.Info("shutting down")
+}
+
+func (app *Tobab) startRPCServer() {
+	err := rpc.Register(app)
+	if err != nil {
+		app.logger.WithError(err).Error("Failed to register rpc")
+		return
+	}
+	rpc.HandleHTTP()
+	l, err := net.Listen("tcp", ":1234")
+	if err != nil {
+		app.logger.WithError(err).Error("Failed to start rpc listener")
+		return
+	}
+	err = http.Serve(l, nil)
+	if err != nil {
+		app.logger.WithError(err).Error("Failed to start rpc http")
+		return
+	}
+
 }
 
 func (app *Tobab) restartServer() {

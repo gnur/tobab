@@ -2,10 +2,12 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/gnur/tobab"
+	"github.com/gnur/tobab/clirpc"
 	"github.com/gorilla/mux"
 	"github.com/markbates/goth"
 	"github.com/markbates/goth/gothic"
@@ -48,14 +50,13 @@ func (app *Tobab) setTobabRoutes(r *mux.Router) {
 			return
 		}
 
-		//TODO: create proper valid hostname / host checker
-		if h.Hostname == "" {
-			http.Error(w, "invalid hostname provided", http.StatusBadRequest)
+		if ok, err := h.Validate(); !ok {
+			http.Error(w, fmt.Sprintf("invalid backend: %e", err), http.StatusBadRequest)
 			return
 		}
 		err = app.db.AddHost(h)
 		if err != nil {
-			app.logger.WithError(err).Error("Failed to unmarshal host from body")
+			app.logger.WithError(err).Error("Failed to add host to database")
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
@@ -132,4 +133,22 @@ type ProviderIndex struct {
 	Providers    []string
 	ProvidersMap map[string]string
 	User         string
+}
+
+func (app *Tobab) GetHosts(in *clirpc.Empty, out *clirpc.GetHostsOut) error {
+	h, err := app.db.GetHosts()
+	out.Hosts = h
+	return err
+}
+
+func (app *Tobab) AddHost(in *clirpc.AddHostIn, out *clirpc.Empty) error {
+	ok, err := in.Host.Validate()
+	if !ok {
+		return err
+	}
+	err = app.db.AddHost(in.Host)
+	if err == nil {
+		go app.restartServer()
+	}
+	return err
 }

@@ -1,8 +1,14 @@
 package tobab
 
 import (
+	"errors"
+	"fmt"
+	"net/url"
+	"strings"
+
 	"github.com/BurntSushi/toml"
 	"github.com/asaskevich/govalidator"
+	"github.com/logrusorgru/aurora"
 	matcher "github.com/ryanuber/go-glob"
 )
 
@@ -22,11 +28,43 @@ type Config struct {
 }
 
 type Host struct {
-	Hostname string `storm:"id"`
-	Backend  string
-	Type     string
+	Hostname string `storm:"id" valid:"dns"`
+	Backend  string `valid:"required"`
+	Type     string `valid:"required"`
 	Public   bool
 	Globs    []Glob
+}
+
+func (h *Host) Print() {
+	fmt.Printf(`
+> %s
+Backend: %s
+Type: %s
+Public: %t
+Globs: %s
+`, aurora.Magenta(aurora.Bold(h.Hostname)), h.Backend, h.Type, h.Public, h.Globs)
+}
+
+func (h *Host) Validate() (bool, error) {
+	ok, err := govalidator.ValidateStruct(h)
+	if !ok {
+		return ok, err
+	}
+	if h.Type != "http" {
+		return false, errors.New("host type must be http")
+	}
+	u, err := url.ParseRequestURI(h.Backend)
+	if err != nil {
+		return false, fmt.Errorf("%s failed to parse as a url: %w", h.Backend, err)
+	}
+	if !strings.HasPrefix(u.Scheme, "http") {
+		return false, fmt.Errorf("%s has invalid or missing scheme", h.Backend)
+	}
+	if !h.Public && len(h.Globs) == 0 {
+		return false, fmt.Errorf("%s will not be accessible by anybody", h.Hostname)
+	}
+
+	return ok, err
 }
 
 type Glob string
