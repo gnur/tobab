@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [0.2.0](https://github.com/gnur/tobab/compare/v0.1.2...v0.2.0) (2020-09-16)
+
+
+### ⚠ BREAKING CHANGES
+
+* salt and secret are now required config parameters
+* **server:** Starting the server is now ./tobab run -c path/to/config.toml
+
+### Features
+
+* **cli:** add cli commands for adding and listing hosts ([754b6e1](https://github.com/gnur/tobab/commit/754b6e1ea90353cace3bb50e85e82c262f2fafe6))
+* **config:** Config is now validated on load ([1254911](https://github.com/gnur/tobab/commit/1254911f47a1b5aec70e5292cab790e6e9ad7b73))
+
+
+* secret and salt are now required ([9b12059](https://github.com/gnur/tobab/commit/9b12059219889a78ec65dc8df58a75d9718950e4))
+* **server:** Added subcommands to trigger server running ([fc8ec36](https://github.com/gnur/tobab/commit/fc8ec368814770b77c25bc5934458c49ce53a940))
+
 ### [0.1.2](https://github.com/gnur/tobab/compare/v0.1.1...v0.1.2) (2020-09-14)
 
 ### [0.1.1](https://github.com/gnur/tobab/compare/v0.1.0...v0.1.1) (2020-09-14)
