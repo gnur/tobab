@@ -14,7 +14,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/BurntSushi/toml"
 	"github.com/caddyserver/certmagic"
 	"github.com/gnur/tobab"
 	"github.com/gnur/tobab/muxlogger"
@@ -47,10 +46,9 @@ func run(confLoc string) {
 		FullTimestamp: true,
 	})
 
-	var cfg tobab.Config
-	_, err := toml.DecodeFile(confLoc, &cfg)
+	cfg, err := tobab.LoadConf(confLoc)
 	if err != nil {
-		logger.WithError(err).Fatal("Could not read config")
+		logger.WithError(err).Fatal("Failed loading config")
 	}
 
 	if lvl, err := logrus.ParseLevel(cfg.Loglevel); err == nil {

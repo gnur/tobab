@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/alecthomas/kong"
+	"github.com/gnur/tobab"
 )
 
 type Globals struct {
@@ -24,7 +25,12 @@ type ValidateCmd struct {
 }
 
 func (r *ValidateCmd) Run(ctx *Globals) error {
-	return validateconf(ctx.Config)
+	_, err := tobab.LoadConf(ctx.Config)
+	if err == nil {
+		fmt.Println("Config ok")
+	}
+
+	return err
 }
 
 type HostCmd struct {
@@ -65,8 +71,4 @@ func main() {
 		Config: cli.Config,
 	})
 	ctx.FatalIfErrorf(err)
-}
-
-func validateconf(path string) error {
-	return errors.New("Invalid conf")
 }

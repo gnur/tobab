@@ -1,22 +1,24 @@
 package tobab
 
 import (
+	"github.com/BurntSushi/toml"
+	"github.com/asaskevich/govalidator"
 	matcher "github.com/ryanuber/go-glob"
 )
 
 type Config struct {
-	Hostname     string
-	CookieScope  string
+	Hostname     string `valid:"dns"`
+	CookieScope  string `valid:"required"`
 	Secret       string
 	Salt         string
-	CertDir      string
-	Email        string
+	CertDir      string `valid:"required"`
+	Email        string `valid:"email"`
 	Staging      bool
-	GoogleKey    string
-	GoogleSecret string
+	GoogleKey    string `valid:"required"`
+	GoogleSecret string `valid:"required"`
 	Loglevel     string
-	DatabasePath string
-	AdminGlobs   []Glob
+	DatabasePath string `valid:"required"`
+	AdminGlobs   []Glob `valid:"required"`
 }
 
 type Host struct {
@@ -48,4 +50,23 @@ func (h Host) HasAccess(user string) bool {
 	}
 
 	return false
+}
+
+func (c *Config) Validate() (bool, error) {
+	return govalidator.ValidateStruct(c)
+}
+
+func LoadConf(path string) (Config, error) {
+	var cfg Config
+	_, err := toml.DecodeFile(path, &cfg)
+	if err != nil {
+		return cfg, err
+	}
+
+	ok, err := cfg.Validate()
+	if !ok {
+		return cfg, err
+	}
+	return cfg, err
+
 }
