@@ -9,8 +9,8 @@ import (
 type Config struct {
 	Hostname     string `valid:"dns"`
 	CookieScope  string `valid:"required"`
-	Secret       string
-	Salt         string
+	Secret       string `valid:"required"`
+	Salt         string `valid:"required"`
 	CertDir      string `valid:"required"`
 	Email        string `valid:"email"`
 	Staging      bool

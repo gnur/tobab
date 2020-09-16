@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"crypto/rand"
 	"fmt"
 	"html/template"
 	"net"
@@ -25,7 +24,6 @@ import (
 )
 
 var version = "manual build"
-var salt = []byte("kcqbBue2Sr7U5yrpEaZFpGVdR6z4jfUeSECy6zuYDXktgxhFCxMtEkV9")
 
 type Tobab struct {
 	fqdn      string
@@ -64,20 +62,8 @@ func run(confLoc string) {
 
 	//only use provided salt if it makes any sense at all
 	//otherwise use the default salt, shouldn't be a problem
-	if len(cfg.Salt) > 2 {
-		salt = []byte(cfg.Salt)
-	}
-
+	salt := []byte(cfg.Salt)
 	secret := []byte(cfg.Secret)
-	//only use provided secret if is it provided
-	if len(secret) < 1 {
-		b := make([]byte, 32)
-		_, err := rand.Read(b)
-		if err != nil {
-			logger.WithError(err).Fatal("unable to generate secure secret, please provide it in config")
-		}
-		secret = b
-	}
 
 	//set secret that goth uses
 	os.Setenv("SESSION_SECRET", string(secret))
