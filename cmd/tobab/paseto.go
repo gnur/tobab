@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/o1egl/paseto"
+	"github.com/o1egl/paseto/v2"
 )
 
 var ErrUnauthenticatedRequest = errors.New("No user information in request")
@@ -45,21 +45,20 @@ func (app *Tobab) decryptToken(t string) (*paseto.JSONToken, error) {
 	return &token, nil
 }
 
-func (app *Tobab) newToken(u string, claims map[string]string) (string, error) {
+func (app *Tobab) newToken(u, issuer string, TTL time.Duration) (string, error) {
 	now := time.Now()
-	exp := now.Add(app.maxAge)
+	if TTL > app.maxAge {
+		return "", errors.New("Provided ttl is too long")
+	}
+	exp := now.Add(TTL)
 	nbt := now
 
 	jsonToken := paseto.JSONToken{
-		Issuer:     app.fqdn,
+		Issuer:     issuer,
 		Subject:    u,
 		IssuedAt:   now,
 		Expiration: exp,
 		NotBefore:  nbt,
-	}
-
-	for k, v := range claims {
-		jsonToken.Set(k, v)
 	}
 
 	token, err := v2.Encrypt(app.key, jsonToken, footer)

@@ -37,26 +37,11 @@ func (db *stormDB) GetHosts() ([]tobab.Host, error) {
 	return hosts, err
 }
 func (db *stormDB) DeleteHost(hostname string) error {
-	return nil
-}
-
-func (db *stormDB) AddGlob(g tobab.Glob) error {
-	return db.db.Save(&g)
-}
-
-func (db *stormDB) GetGlob(n string) (*tobab.Glob, error) {
-	var g tobab.Glob
-	err := db.db.One("Name", n, &g)
-	return &g, err
-}
-
-func (db *stormDB) GetGlobs() ([]tobab.Glob, error) {
-	var globs []tobab.Glob
-	err := db.db.All(&globs)
-	return globs, err
-}
-func (db *stormDB) DeleteGlob(string) error {
-	return nil
+	h, err := db.GetHost(hostname)
+	if err != nil {
+		return err
+	}
+	return db.db.DeleteStruct(h)
 }
 
 func (db *stormDB) Close() {

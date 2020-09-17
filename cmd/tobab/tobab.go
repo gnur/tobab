@@ -65,6 +65,25 @@ func (app *Tobab) setTobabRoutes(r *mux.Router) {
 
 	}).Methods("POST")
 
+	//DELETE host
+	api.HandleFunc("/host/{hostname}", func(w http.ResponseWriter, r *http.Request) {
+		h, ok := mux.Vars(r)["hostname"]
+		if !ok || h == "" {
+			app.logger.Error("No hostname provided")
+			http.Error(w, "No hostname provided", http.StatusBadRequest)
+			return
+		}
+		err := app.db.DeleteHost(h)
+		if err != nil {
+			app.logger.WithError(err).Error("Failed to delete host from database")
+			http.Error(w, "internal server error", http.StatusInternalServerError)
+			return
+		}
+		http.Error(w, "ok", 202)
+		go app.restartServer()
+
+	}).Methods("DELETE")
+
 	//setup user facing auth
 	goth.UseProviders(
 		google.New(app.config.GoogleKey, app.config.GoogleSecret, app.fqdn+"/auth/google/callback"),
@@ -80,13 +99,8 @@ func (app *Tobab) setTobabRoutes(r *mux.Router) {
 			http.Error(w, err.Error(), http.StatusUnauthorized)
 			return
 		}
-		claims := make(map[string]string)
 
-		claims["avatar"] = user.AvatarURL
-		claims["name"] = user.Name
-		claims["userid"] = user.UserID
-
-		token, err := app.newToken(user.Email, claims)
+		token, err := app.newToken(user.Email, app.fqdn, app.defaultAge)
 		if err != nil {
 			http.Error(w, http.StatusText(500), http.StatusInternalServerError)
 			return
@@ -150,5 +164,25 @@ func (app *Tobab) AddHost(in *clirpc.AddHostIn, out *clirpc.Empty) error {
 	if err == nil {
 		go app.restartServer()
 	}
+	return err
+}
+
+func (app *Tobab) DeleteHost(in *clirpc.DeleteHostIn, out *clirpc.Empty) error {
+	err := app.db.DeleteHost(in.Hostname)
+	if err == nil {
+		go app.restartServer()
+	}
+	return err
+}
+
+func (app *Tobab) CreateToken(in *clirpc.CreateTokenIn, out *clirpc.CreateTokenOut) error {
+	token, err := app.newToken(in.Email, "tobab:cli", in.TTL)
+	out.Token = token
+	return err
+}
+
+func (app *Tobab) ValidateToken(in *clirpc.ValidateTokenIn, out *clirpc.ValidateTokenOut) error {
+	token, err := app.decryptToken(in.Token)
+	out.Token = *token
 	return err
 }

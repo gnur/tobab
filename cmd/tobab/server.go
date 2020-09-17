@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"html/template"
 	"net"
 	"net/http"
@@ -11,7 +10,6 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
-	"strings"
 	"time"
 
 	"github.com/caddyserver/certmagic"
@@ -27,15 +25,16 @@ import (
 var version = "manual build"
 
 type Tobab struct {
-	fqdn      string
-	key       []byte
-	config    tobab.Config
-	logger    *logrus.Entry
-	maxAge    time.Duration
-	templates *template.Template
-	confLoc   string
-	db        tobab.Database
-	server    *http.Server
+	fqdn       string
+	key        []byte
+	config     tobab.Config
+	logger     *logrus.Entry
+	maxAge     time.Duration
+	defaultAge time.Duration
+	templates  *template.Template
+	confLoc    string
+	db         tobab.Database
+	server     *http.Server
 }
 
 func run(confLoc string) {
@@ -80,6 +79,7 @@ func run(confLoc string) {
 	if err != nil {
 		logger.WithError(err).WithField("location", cfg.DatabasePath).Fatal("Unable to initialize database")
 	}
+	defer db.Close()
 
 	app := Tobab{
 		key:     key,
@@ -89,6 +89,18 @@ func run(confLoc string) {
 		fqdn:    "https://" + cfg.Hostname,
 		confLoc: confLoc,
 		db:      db,
+	}
+
+	if age, err := time.ParseDuration(cfg.DefaultTokenAge); err != nil {
+		app.defaultAge = 720 * time.Hour
+	} else {
+		app.defaultAge = age
+	}
+
+	if age, err := time.ParseDuration(cfg.MaxTokenAge); err != nil {
+		app.maxAge = 24 * 365 * time.Hour
+	} else {
+		app.maxAge = age
 	}
 
 	app.templates, err = loadTemplates()
@@ -175,37 +187,6 @@ func (app *Tobab) startServer() {
 	r.Use(muxlogger.NewLogger(app.logger).Middleware)
 	r.Use(handlers.CompressHandler)
 	r.Use(app.getRBACMiddleware())
-
-	if strings.EqualFold(app.config.Loglevel, "debug") {
-		err = r.Walk(func(route *mux.Route, router *mux.Router, ancestors []*mux.Route) error {
-			pathTemplate, err := route.GetPathTemplate()
-			if err == nil {
-				fmt.Println("ROUTE:", pathTemplate)
-			}
-			pathRegexp, err := route.GetPathRegexp()
-			if err == nil {
-				fmt.Println("Path regexp:", pathRegexp)
-			}
-			queriesTemplates, err := route.GetQueriesTemplates()
-			if err == nil {
-				fmt.Println("Queries templates:", strings.Join(queriesTemplates, ","))
-			}
-			queriesRegexps, err := route.GetQueriesRegexp()
-			if err == nil {
-				fmt.Println("Queries regexps:", strings.Join(queriesRegexps, ","))
-			}
-			methods, err := route.GetMethods()
-			if err == nil {
-				fmt.Println("Methods:", strings.Join(methods, ","))
-			}
-			fmt.Println()
-			return nil
-		})
-
-		if err != nil {
-			app.logger.WithError(err).Error("failed dumping routes")
-		}
-	}
 
 	magicListener, err := certmagic.Listen(certHosts)
 	if err != nil {

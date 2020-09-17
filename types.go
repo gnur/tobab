@@ -13,18 +13,20 @@ import (
 )
 
 type Config struct {
-	Hostname     string `valid:"dns"`
-	CookieScope  string `valid:"required"`
-	Secret       string `valid:"required"`
-	Salt         string `valid:"required"`
-	CertDir      string `valid:"required"`
-	Email        string `valid:"email"`
-	Staging      bool
-	GoogleKey    string `valid:"required"`
-	GoogleSecret string `valid:"required"`
-	Loglevel     string
-	DatabasePath string `valid:"required"`
-	AdminGlobs   []Glob `valid:"required"`
+	Hostname        string `valid:"dns"`
+	DefaultTokenAge string
+	MaxTokenAge     string
+	CookieScope     string `valid:"required"`
+	Secret          string `valid:"required"`
+	Salt            string `valid:"required"`
+	CertDir         string `valid:"required"`
+	Email           string `valid:"email"`
+	Staging         bool
+	GoogleKey       string `valid:"required"`
+	GoogleSecret    string `valid:"required"`
+	Loglevel        string
+	DatabasePath    string `valid:"required"`
+	AdminGlobs      []Glob `valid:"required"`
 }
 
 type Host struct {

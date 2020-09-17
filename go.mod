@@ -17,7 +17,7 @@ require (
 	github.com/markbates/goth v1.64.2
 	github.com/markbates/pkger v0.17.1
 	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e // indirect
-	github.com/o1egl/paseto v1.0.0
+	github.com/o1egl/paseto/v2 v2.1.1
 	github.com/ryanuber/go-glob v1.0.0
 	github.com/sirupsen/logrus v1.6.0
 	github.com/stretchr/testify v1.6.1 // indirect
