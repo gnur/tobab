@@ -68,6 +68,12 @@ Commands:
   version
     print tobab version
 
+  token create --email=STRING --ttl=STRING
+    generate a new token
+
+  token validate --token=STRING
+    Get fields from a token
+
 Run "tobab <command> --help" for more information on a command.
 ```
 
@@ -79,6 +85,10 @@ tobab host add --hostname=test.example.com --backend=127.0.0.1:8080 --type=http 
 tobab host list
 # delete a host
 tobab host delete --hostname=test.example.com
+# manually create an access token (useful for automation, see automation below)
+tobab token create --email=<email> --ttl="800h"
+# validate a token (and get information)
+tobab token validate --token=<token>
 ```
 
 ## api calls
@@ -141,9 +151,12 @@ Cookie: X-Tobab-Token=<token>
 ### example api call to delete a route
 ```http
 # @name delHost
-DELETE /v1/api/host/prom.tobab.erwin.land
+DELETE /v1/api/host/route2.example.com
 User-Agent: curl/7.64.1
 Accept: */*
 Cookie: X-Tobab-Token=<token>
 ###
 ```
+
+# automation (stuff like APIs)
+If you have an api running behind tobab, it is possible to manually issue tokens and add them to the headers manually. Combine the info in the readme about the example API calls and the example CLI commands to see how to do just that :).
