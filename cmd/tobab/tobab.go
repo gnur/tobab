@@ -50,7 +50,7 @@ func (app *Tobab) setTobabRoutes(r *mux.Router) {
 			return
 		}
 
-		if ok, err := h.Validate(); !ok {
+		if ok, err := h.Validate(app.config.CookieScope); !ok {
 			http.Error(w, fmt.Sprintf("invalid backend: %e", err), http.StatusBadRequest)
 			return
 		}
@@ -156,7 +156,7 @@ func (app *Tobab) GetHosts(in *clirpc.Empty, out *clirpc.GetHostsOut) error {
 }
 
 func (app *Tobab) AddHost(in *clirpc.AddHostIn, out *clirpc.Empty) error {
-	ok, err := in.Host.Validate()
+	ok, err := in.Host.Validate(app.config.CookieScope)
 	if !ok {
 		return err
 	}

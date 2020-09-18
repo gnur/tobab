@@ -3,6 +3,7 @@ package tobab
 import "testing"
 
 func TestHost_Validate(t *testing.T) {
+	cookiescope := "example.com"
 	type fields struct {
 		Hostname string
 		Backend  string
@@ -93,6 +94,18 @@ func TestHost_Validate(t *testing.T) {
 			want:    true,
 			wantErr: false,
 		},
+		{
+			name: "unreachable because of domain",
+			fields: fields{
+				Hostname: "test.example.co.uk",
+				Backend:  "http://localhost:1234",
+				Type:     "http",
+				Public:   false,
+				Globs:    []Glob{"*"},
+			},
+			want:    false,
+			wantErr: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -103,7 +116,7 @@ func TestHost_Validate(t *testing.T) {
 				Public:   tt.fields.Public,
 				Globs:    tt.fields.Globs,
 			}
-			got, err := h.Validate()
+			got, err := h.Validate(cookiescope)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Host.Validate() error = %v, wantErr %v", err, tt.wantErr)
 				return

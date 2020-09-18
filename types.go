@@ -47,7 +47,7 @@ Globs: %s
 `, aurora.Magenta(aurora.Bold(h.Hostname)), h.Backend, h.Type, h.Public, h.Globs)
 }
 
-func (h *Host) Validate() (bool, error) {
+func (h *Host) Validate(cookiescope string) (bool, error) {
 	ok, err := govalidator.ValidateStruct(h)
 	if !ok {
 		return ok, err
@@ -61,6 +61,9 @@ func (h *Host) Validate() (bool, error) {
 	}
 	if !strings.HasPrefix(u.Scheme, "http") {
 		return false, fmt.Errorf("%s has invalid or missing scheme", h.Backend)
+	}
+	if !strings.HasSuffix(h.Hostname, cookiescope) && !h.Public {
+		return false, fmt.Errorf("'%s' won't be accessible because the cookiescope ('%s') does not match this domain", h.Hostname, cookiescope)
 	}
 	if !h.Public && len(h.Globs) == 0 {
 		return false, fmt.Errorf("%s will not be accessible by anybody", h.Hostname)
@@ -93,7 +96,16 @@ func (h Host) HasAccess(user string) bool {
 }
 
 func (c *Config) Validate() (bool, error) {
-	return govalidator.ValidateStruct(c)
+	ok, err := govalidator.ValidateStruct(c)
+	if !ok {
+		return ok, err
+	}
+
+	if !strings.HasSuffix(c.Hostname, c.CookieScope) {
+		return false, fmt.Errorf("Hostname: '%s' should be in the same domain as the cookiescope: '%s'", c.Hostname, c.CookieScope)
+	}
+
+	return ok, err
 }
 
 func LoadConf(path string) (Config, error) {
