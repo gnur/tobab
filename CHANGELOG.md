@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.2.4](https://github.com/gnur/tobab/compare/v0.2.3...v0.2.4) (2020-09-18)
+
+
+### Features
+
+* **routing:** Extra validation on route addition ([46886c5](https://github.com/gnur/tobab/commit/46886c5e4630546d6e9f0dc9f87761ad95bb6a2c))
+
 ### [0.2.3](https://github.com/gnur/tobab/compare/v0.2.2...v0.2.3) (2020-09-17)
 
 ### [0.2.2](https://github.com/gnur/tobab/compare/v0.2.1...v0.2.2) (2020-09-17)
