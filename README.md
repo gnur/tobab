@@ -44,12 +44,14 @@ It allows you to connect one or more identity providers (currently, only google 
 hostname = "login.example.com" #hostname where the login occurs
 cookiescope = "example.com"
 secret = "some-secret"
+salt = ""
 certdir = "path to dir with write access"
 email = "user@example.com"
 googlekey = "google id"
 googlesecret = "google secret"
 loglevel = "debug" #or info, warning, error
 databasepath = "./tobab.db"
+adminglobs = [ "*@example.com" ] #globs of email addresses that are allowed to use the admin API
 ```
 
 ## cli
