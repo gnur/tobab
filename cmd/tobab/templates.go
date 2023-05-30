@@ -1,35 +1,23 @@
 package main
 
 import (
+	"embed"
+	_ "embed"
+	"fmt"
 	"html/template"
-	"io/ioutil"
-	"os"
-	"strings"
-
-	"github.com/markbates/pkger"
 )
+
+//go:embed templates
+var templateFiles embed.FS
 
 func loadTemplates() (*template.Template, error) {
 	tpl := template.New("")
 	tpl.Funcs(templateFunctions)
 
-	err := pkger.Walk("/templates", func(path string, info os.FileInfo, err error) error {
-		if strings.HasSuffix(path, ".html") {
-			f, err := pkger.Open(path)
-			if err != nil {
-				return err
-			}
-			sl, err := ioutil.ReadAll(f)
-			if err != nil {
-				return err
-			}
-			_, err = tpl.Parse(string(sl))
-			if err != nil {
-				return err
-			}
-		}
-		return nil
-	})
+	tpl, err := tpl.ParseFS(templateFiles, "templates/*.html")
+	if err != nil {
+		return nil, fmt.Errorf("Unabled to parse templates: %w", err)
+	}
 
-	return tpl, err
+	return tpl, nil
 }

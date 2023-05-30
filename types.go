@@ -22,8 +22,6 @@ type Config struct {
 	CertDir         string `valid:"required"`
 	Email           string `valid:"email"`
 	Staging         bool
-	GoogleKey       string `valid:"required"`
-	GoogleSecret    string `valid:"required"`
 	Loglevel        string
 	DatabasePath    string `valid:"required"`
 	AdminGlobs      []Glob `valid:"required"`

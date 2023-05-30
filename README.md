@@ -3,7 +3,7 @@ tobab: an opinionated poor mans identity-aware proxy, easy to use setup for beyo
 
 <img src="./tobab.png" width="350" alt="tobab gopher logo">
 
-It allows you to connect one or more identity providers (currently, only google is supported) and grant access to backends based on the identity of the user.  
+It uses passkeys for simple and robust authentication.
 
 ## goals
 
@@ -20,7 +20,6 @@ It allows you to connect one or more identity providers (currently, only google 
 
 ## wishlist (not implemented yet)
 
-- openID connect integration
 - docker integration (use the docker API to determine containers to route traffic into)
 - docker builds
 - full integration test suite that can run every night
@@ -31,7 +30,6 @@ It allows you to connect one or more identity providers (currently, only google 
 
 - download an appropriate release from the releases page
 - place a `tobab.toml` file somewhere and set the env var `TOBAB_CONFIG` var to that location
-- configure the google key and secret by creating a new [oauth application](https://developers.google.com/identity/protocols/oauth2/web-server)
 - make sure port 80 and port 443 are routed to the host you are running it on
 - start tobab with appropriate permissions to bind on port 80 and 443
 - add routes using the CLI or the API
@@ -47,8 +45,6 @@ secret = "some-secret"
 salt = ""
 certdir = "path to dir with write access"
 email = "user@example.com"
-googlekey = "google id"
-googlesecret = "google secret"
 loglevel = "debug" #or info, warning, error
 databasepath = "./tobab.db"
 adminglobs = [ "*@example.com" ] #globs of email addresses that are allowed to use the admin API
