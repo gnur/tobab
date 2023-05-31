@@ -5,15 +5,18 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/BurntSushi/toml"
 	"github.com/asaskevich/govalidator"
+	"github.com/go-webauthn/webauthn/webauthn"
 	"github.com/logrusorgru/aurora"
 	matcher "github.com/ryanuber/go-glob"
 )
 
 type Config struct {
 	Hostname        string `valid:"dns"`
+	Displayname     string `valid:"required"`
 	DefaultTokenAge string
 	MaxTokenAge     string
 	CookieScope     string `valid:"required"`
@@ -33,6 +36,21 @@ type Host struct {
 	Type     string `valid:"required"`
 	Public   bool
 	Globs    []Glob
+}
+
+type User struct {
+	ID    []byte `storm:"id"`
+	Name  string
+	Admin bool
+	Creds []webauthn.Credential
+}
+
+type Session struct {
+	ID       string `storm:"id"`
+	UserID   []byte
+	Created  time.Time
+	LastSeen time.Time
+	Vals     map[string]string
 }
 
 func (h *Host) Print() {

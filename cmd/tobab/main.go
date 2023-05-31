@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"net/rpc"
-	"time"
 
 	"github.com/alecthomas/kong"
 	"github.com/gnur/tobab"
@@ -123,66 +122,6 @@ func (r *VersionCmd) Run(ctx *Globals) error {
 	return nil
 }
 
-type TokenCmd struct {
-	Create   CreateTokenCmd   `cmd:"" help:"generate a new token"`
-	Validate ValidateTokenCmd `cmd:"" help:"Get fields from a token"`
-}
-
-type CreateTokenCmd struct {
-	Email string `help:"email address to issue token to" kong:"required" short:"e"`
-	TTL   string `help:"max age of token" kong:"required" short:"t"`
-}
-
-func (r *CreateTokenCmd) Run(ctx *Globals) error {
-	ttl, err := time.ParseDuration(r.TTL)
-	if err != nil {
-		return fmt.Errorf("Invalid duration provided: %w", err)
-	}
-	client, err := rpc.DialHTTP("tcp", "localhost:1234")
-	if err != nil {
-		log.Fatal("dialing:", err)
-	}
-	in := &clirpc.CreateTokenIn{
-		Email: r.Email,
-		TTL:   ttl,
-	}
-	var out clirpc.CreateTokenOut
-	err = client.Call("Tobab.CreateToken", in, &out)
-	if err != nil {
-		log.Fatal("tobab error:", err)
-	}
-	fmt.Println("token created")
-	fmt.Println(out.Token)
-	return nil
-}
-
-type ValidateTokenCmd struct {
-	Token string `help:"plain text token" kong:"required" short:"t"`
-}
-
-func (r *ValidateTokenCmd) Run(ctx *Globals) error {
-	client, err := rpc.DialHTTP("tcp", "localhost:1234")
-	if err != nil {
-		log.Fatal("dialing:", err)
-	}
-	in := &clirpc.ValidateTokenIn{
-		Token: r.Token,
-	}
-	var out clirpc.ValidateTokenOut
-	err = client.Call("Tobab.ValidateToken", in, &out)
-	if err != nil {
-		log.Fatal("tobab error:", err)
-	}
-	t := out.Token
-	fmt.Printf(`
-Issuer:	       %s
-Subject:       %s
-Issued at:     %s
-Expires at:    %s
-`, t.Issuer, t.Subject, t.IssuedAt, t.Expiration)
-	return nil
-}
-
 var cli struct {
 	Globals
 
@@ -190,7 +129,6 @@ var cli struct {
 	Validate ValidateCmd `cmd:"" help:"validate tobab config"`
 	Host     HostCmd     `cmd:"" help:"various host related commands"`
 	Version  VersionCmd  `cmd:"" help:"print tobab version"`
-	Token    TokenCmd    `cmd:"" help:"various token related commands"`
 }
 
 func main() {

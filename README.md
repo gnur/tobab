@@ -78,12 +78,6 @@ Commands:
   version
     print tobab version
 
-  token create --email=STRING --ttl=STRING
-    generate a new token
-
-  token validate --token=STRING
-    Get fields from a token
-
 Run "tobab <command> --help" for more information on a command.
 ```
 
@@ -96,81 +90,11 @@ tobab host add --hostname=test.example.com --backend=http://127.0.0.1:8080 --typ
 tobab host list
 # delete a host
 tobab host delete --hostname=test.example.com
-# manually create an access token (useful for automation, see automation below)
-tobab token create --email=<email> --ttl="800h"
-# validate a token (and get information)
-tobab token validate --token=<token>
 ```
 
 ## api calls
 
-### example api call to add a route that only allows signed in users with an example.com email address
 
-```http
-# @name addHost
-POST /v1/api/host
-User-Agent: curl/7.64.1
-Accept: */*
-Cookie: X-Tobab-Token=<token>
-
-{
-    "Hostname": "route.example.com",
-    "Backend": "https://example.com",
-    "Type": "http",
-    "Public":false,
-    "Globs": [ "*@example.com" ]
-}
-###
-```
-### example api call to add a route that allows any signed in user
-
-```http
-# @name addHost
-POST /v1/api/host
-User-Agent: curl/7.64.1
-Accept: */*
-Cookie: X-Tobab-Token=<token>
-
-{
-    "Hostname": "route2.example.com",
-    "Backend": "https://example.com",
-    "Type": "http",
-    "Public":false,
-    "Globs": [ "*" ]
-}
-###
-```
-
-### example api call to add a route that allows full access without signing in
-
-```http
-# @name addHost
-POST /v1/api/host
-User-Agent: curl/7.64.1
-Accept: */*
-Cookie: X-Tobab-Token=<token>
-
-{
-    "Hostname": "route2.example.com",
-    "Backend": "https://example.com",
-    "Type": "http",
-    "Public":true,
-}
-###
-```
-
-### example api call to delete a route
-```http
-# @name delHost
-DELETE /v1/api/host/route2.example.com
-User-Agent: curl/7.64.1
-Accept: */*
-Cookie: X-Tobab-Token=<token>
-###
-```
-
-# automation (stuff like APIs)
-If you have an api running behind tobab, it is possible to manually issue tokens and add them to the headers manually. Combine the info in the readme about the example API calls and the example CLI commands to see how to do just that :).
 
 # acknowledgements
 

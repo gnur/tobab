@@ -168,15 +168,15 @@ func (app *Tobab) setupProxies() {
 
 func (app *Tobab) startServer() {
 	app.logger.Info("starting server")
-	//r := mux.NewRouter()
+
 	r := gin.Default()
 	r.SetHTMLTemplate(app.templates)
 	certHosts := []string{app.config.Hostname}
 
 	app.setupProxies()
 
-	//r.Use(muxlogger.NewLogger(app.logger).Middleware)
 	r.Use(gzip.Gzip(gzip.DefaultCompression))
+	r.Use(app.getSessionMiddleware())
 	r.Use(app.getRBACMiddleware())
 	r.Use(app.getProxyRouter())
 	app.setTobabRoutes(r)

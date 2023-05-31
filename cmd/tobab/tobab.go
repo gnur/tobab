@@ -114,15 +114,3 @@ func (app *Tobab) DeleteHost(in *clirpc.DeleteHostIn, out *clirpc.Empty) error {
 	}
 	return err
 }
-
-func (app *Tobab) CreateToken(in *clirpc.CreateTokenIn, out *clirpc.CreateTokenOut) error {
-	token, err := app.newToken(in.Email, "tobab:cli", in.TTL)
-	out.Token = token
-	return err
-}
-
-func (app *Tobab) ValidateToken(in *clirpc.ValidateTokenIn, out *clirpc.ValidateTokenOut) error {
-	token, err := app.decryptToken(in.Token)
-	out.Token = *token
-	return err
-}
