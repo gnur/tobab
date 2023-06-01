@@ -4,6 +4,7 @@
 
 <head>
     <title>tobab</title>
+    <script src="https://unpkg.com/@simplewebauthn/browser/dist/bundle/index.umd.min.js"></script>
 </head>
 {{/* colors picked with: https://coolors.co/f738fd-f6e8ea-22181c-312f2f */}}
 <style>
@@ -47,6 +48,10 @@
         font-weight: bold;
         font-size: 2em;
     }
+    
+    #passkey {
+        display: none;
+    }
 </style>
 
 <body>
@@ -55,13 +60,19 @@
             {{if ne .User ""}}
             <h1>Hi {{.User}}</h1>
             {{else}}
-            {{range $key,$value:=.Providers}}
-            <p><a href="/auth/{{$value}}">Log in with {{index $.ProvidersMap $value}}</a></p>
-            {{end}}
+            <input type="text" id="username" placeholder="username" autocomplete="username webauthn"></input>
+            
+
+            <div id="passkey">
+                <button onclick="startRegister()" id="passkeycreate" value="createpasskey">Create passkey</button>
+            </div>
+            
             {{end}}
         </div>
     </div>
 </body>
+<script src="/static/main.js">
+</script>
 
 </html>
 {{end}}

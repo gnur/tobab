@@ -39,10 +39,33 @@ type Host struct {
 }
 
 type User struct {
-	ID    []byte `storm:"id"`
-	Name  string
-	Admin bool
-	Creds []webauthn.Credential
+	ID                   []byte `storm:"id"`
+	Name                 string
+	RegistrationFinished bool
+	Created              time.Time
+	LastSeen             time.Time
+	Admin                bool
+	Creds                []webauthn.Credential
+}
+
+func (user *User) WebAuthnID() []byte {
+	return user.ID
+}
+
+func (user *User) WebAuthnName() string {
+	return user.Name
+}
+
+func (user *User) WebAuthnDisplayName() string {
+	return user.Name
+}
+
+func (user *User) WebAuthnIcon() string {
+	return "https://pics.com/avatar.png"
+}
+
+func (user *User) WebAuthnCredentials() []webauthn.Credential {
+	return user.Creds
 }
 
 type Session struct {
@@ -51,6 +74,7 @@ type Session struct {
 	Created  time.Time
 	LastSeen time.Time
 	Vals     map[string]string
+	Data     *webauthn.SessionData
 }
 
 func (h *Host) Print() {

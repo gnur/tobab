@@ -18,6 +18,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gnur/tobab"
 	"github.com/gnur/tobab/storm"
+	"github.com/go-webauthn/webauthn/webauthn"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/crypto/argon2"
 )
@@ -35,6 +36,7 @@ type Tobab struct {
 	confLoc    string
 	db         tobab.Database
 	proxies    map[string]http.Handler
+	webauthn   *webauthn.WebAuthn
 }
 
 func run(confLoc string) {
@@ -78,14 +80,26 @@ func run(confLoc string) {
 	}
 	defer db.Close()
 
+	wconfig := &webauthn.Config{
+		RPDisplayName: cfg.Displayname,
+		RPID:          cfg.CookieScope,
+		RPOrigins:     []string{cfg.Hostname},
+	}
+
+	w, err := webauthn.New(wconfig)
+	if err != nil {
+		logger.WithError(err).Fatal("Unable to initialize webauthn")
+	}
+
 	app := Tobab{
-		key:     key,
-		config:  cfg,
-		logger:  logger.WithField("version", version),
-		maxAge:  720 * time.Hour,
-		fqdn:    "https://" + cfg.Hostname,
-		confLoc: confLoc,
-		db:      db,
+		key:      key,
+		config:   cfg,
+		logger:   logger.WithField("version", version),
+		maxAge:   720 * time.Hour,
+		fqdn:     "https://" + cfg.Hostname,
+		confLoc:  confLoc,
+		db:       db,
+		webauthn: w,
 	}
 
 	if age, err := time.ParseDuration(cfg.DefaultTokenAge); err != nil {

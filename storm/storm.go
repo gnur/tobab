@@ -24,6 +24,23 @@ func New(path string) (*stormDB, error) {
 	return &database, nil
 }
 
+func (db *stormDB) KVSet(k string, v any) error {
+	return db.db.Set("tobab", k, v)
+}
+func (db *stormDB) KVGetString(k string) (string, error) {
+	var s string
+	err := db.db.Get("tobab", k, &s)
+	return s, err
+}
+func (db *stormDB) KVGetBool(k string) (bool, error) {
+	var b bool
+	err := db.db.Get("tobab", k, &b)
+	return b, err
+}
+func (db *stormDB) KVGet(k string, v *any) error {
+	return db.db.Get("tobab", k, v)
+}
+
 func (db *stormDB) AddHost(h tobab.Host) error {
 	return db.db.Save(&h)
 }
@@ -53,6 +70,12 @@ func (db *stormDB) Close() {
 func (db *stormDB) GetUser(id []byte) (*tobab.User, error) {
 	var u tobab.User
 	err := db.db.One("ID", id, &u)
+	return &u, err
+}
+
+func (db *stormDB) GetUserByName(id string) (*tobab.User, error) {
+	var u tobab.User
+	err := db.db.One("Name", id, &u)
 	return &u, err
 }
 

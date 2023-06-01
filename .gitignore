@@ -24,3 +24,4 @@ pkged.go
 
 tmp/*
 config.toml
+dist/

@@ -10,6 +10,9 @@ import (
 //go:embed templates
 var templateFiles embed.FS
 
+//go:embed static
+var staticFS embed.FS
+
 func loadTemplates() (*template.Template, error) {
 	tpl := template.New("")
 	tpl.Funcs(templateFunctions)
