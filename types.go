@@ -40,7 +40,7 @@ type Host struct {
 
 type User struct {
 	ID                   []byte `storm:"id"`
-	Name                 string
+	Name                 string `storm:"unique"`
 	RegistrationFinished bool
 	Created              time.Time
 	LastSeen             time.Time

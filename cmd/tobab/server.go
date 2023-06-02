@@ -83,7 +83,7 @@ func run(confLoc string) {
 	wconfig := &webauthn.Config{
 		RPDisplayName: cfg.Displayname,
 		RPID:          cfg.CookieScope,
-		RPOrigins:     []string{cfg.Hostname},
+		RPOrigins:     []string{"https://" + cfg.Hostname},
 	}
 
 	w, err := webauthn.New(wconfig)
@@ -100,6 +100,13 @@ func run(confLoc string) {
 		confLoc:  confLoc,
 		db:       db,
 		webauthn: w,
+	}
+
+	//check if admin is created already, otherwise set it to false
+	hasAdmin, err := app.db.KVGetBool(ADMIN_REGISTERED_KEY)
+	if err != nil || !hasAdmin {
+		logger.Warning("Setting flag so first user to register will be admin")
+		app.db.KVSet(ADMIN_REGISTERED_KEY, false)
 	}
 
 	if age, err := time.ParseDuration(cfg.DefaultTokenAge); err != nil {
@@ -183,7 +190,9 @@ func (app *Tobab) setupProxies() {
 func (app *Tobab) startServer() {
 	app.logger.Info("starting server")
 
+	gin.SetMode(gin.ReleaseMode)
 	r := gin.Default()
+
 	r.SetHTMLTemplate(app.templates)
 	certHosts := []string{app.config.Hostname}
 

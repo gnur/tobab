@@ -14,6 +14,8 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+const ADMIN_REGISTERED_KEY = "admin_registered"
+
 type RegistrationStart struct {
 	Name string
 }
@@ -129,7 +131,14 @@ func (app *Tobab) setTobabRoutes(r *gin.Engine) {
 			return
 		}
 
+		hasAdmin, err := app.db.KVGetBool(ADMIN_REGISTERED_KEY)
+		if err == nil && !hasAdmin {
+			user.Admin = true
+			app.db.KVSet(ADMIN_REGISTERED_KEY, true)
+		}
+
 		user.Creds = append(user.Creds, *credential)
+		user.RegistrationFinished = true
 		err = app.db.SetUser(*user)
 		if err != nil {
 			pklog.WithError(err).Error("failed to store credential with user")
