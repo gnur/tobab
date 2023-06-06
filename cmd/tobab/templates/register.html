@@ -1,0 +1,37 @@
+{{define "register.html"}}
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>tobab</title>
+    <script src="/static/base64url.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="/static/main.css" />
+</head>
+<body>
+    <div class="flex-container">
+        <div class="row">
+            <form id="create-account">
+            <input type="text" id="username" placeholder="username" autocomplete="username webauthn"></input>
+            <div id="passkey">
+                <button type="submit">Create account</submit>
+            </div>
+            
+            </form>
+        </div>
+    </div>
+<dialog id="messages">
+<form>
+    <div id="error-div">
+    </div>
+        <div>
+      <button value="cancel" formmethod="dialog">ok</button>
+    </div>
+</form>
+</dialog>
+</body>
+<script src="/static/main.js">
+</script>
+
+</html>
+{{end}}

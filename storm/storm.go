@@ -70,6 +70,10 @@ func (db *stormDB) Close() {
 func (db *stormDB) GetUser(id []byte) (*tobab.User, error) {
 	var u tobab.User
 	err := db.db.One("ID", id, &u)
+	if err == nil {
+		u.LastSeen = time.Now()
+		db.SetUser(u)
+	}
 	return &u, err
 }
 
@@ -86,13 +90,11 @@ func (db *stormDB) SetUser(u tobab.User) error {
 func (db *stormDB) GetSession(id string) (*tobab.Session, error) {
 	var s tobab.Session
 	err := db.db.One("ID", id, &s)
-	s.LastSeen = time.Now()
-	db.SetSession(s)
-
 	return &s, err
 }
 
 func (db *stormDB) SetSession(s tobab.Session) error {
+	s.State = s.FSM.Current()
 	return db.db.Save(&s)
 }
 

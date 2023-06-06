@@ -11,6 +11,7 @@ import (
 	"github.com/asaskevich/govalidator"
 	"github.com/go-webauthn/webauthn/webauthn"
 	"github.com/logrusorgru/aurora"
+	"github.com/looplab/fsm"
 	matcher "github.com/ryanuber/go-glob"
 )
 
@@ -73,8 +74,11 @@ type Session struct {
 	UserID   []byte
 	Created  time.Time
 	LastSeen time.Time
+	Expires  time.Time
 	Vals     map[string]string
 	Data     *webauthn.SessionData
+	FSM      *fsm.FSM
+	State    string
 }
 
 func (h *Host) Print() {

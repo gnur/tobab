@@ -1,0 +1,41 @@
+/* colors picked with: https://coolors.co/f738fd-f6e8ea-22181c-312f2f */
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background-color: #22181c;
+}
+
+.flex-container {
+  height: 100%;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.row {
+  font-family: Helvetica, Arial, sans-serif;
+  color: #f6e8ea;
+  width: auto;
+  background-color: #312f2f;
+  padding: 50px;
+  border-radius: 20px;
+}
+
+a,
+a:hover,
+a:visited,
+a:valid {
+  color: #F738FD;
+  text-decoration: none;
+  font-weight: bold;
+  font-size: 2em;
+}
+
+#passkey {
+  display: none;
+}

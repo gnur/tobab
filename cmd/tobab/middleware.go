@@ -4,12 +4,9 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-	"time"
 
 	"github.com/asdine/storm"
 	"github.com/gin-gonic/gin"
-	"github.com/gnur/tobab"
-	"github.com/lithammer/shortuuid"
 	"github.com/sirupsen/logrus"
 )
 
@@ -32,33 +29,10 @@ func (app *Tobab) getSessionMiddleware() gin.HandlerFunc {
 
 		//Ignore error, empty string will result in error when retrieving session
 		sessID, _ := c.Cookie(COOKIE_NAME)
+		session := app.getSession(sessID)
 
-		session, err := app.db.GetSession(sessID)
-		if err != nil || session.LastSeen.Before(time.Now().Add(-1*app.defaultAge)) {
-			session = &tobab.Session{
-				ID:      shortuuid.New(),
-				Created: time.Now(),
-			}
-			err := app.db.SetSession(*session)
-			if err != nil {
-				app.logger.WithError(err).Error("Unable to save session")
-				c.AbortWithStatus(http.StatusInternalServerError)
-				return
-			}
-		}
 		c.SetCookie(COOKIE_NAME, session.ID, int(app.defaultAge.Seconds()), "/", app.config.CookieScope, true, true)
 		c.Set("SESSION_ID", session.ID)
-
-		c.Set("SESSION", session)
-		if session.UserID != nil {
-			user, err := app.db.GetUser(session.UserID)
-			if err != nil {
-				app.logger.WithError(err).Error("Unable to get user")
-				c.AbortWithStatus(http.StatusInternalServerError)
-				return
-			}
-			c.Set("USER", user)
-		}
 	}
 }
 

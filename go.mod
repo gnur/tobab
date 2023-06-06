@@ -13,6 +13,7 @@ require (
 	github.com/go-webauthn/webauthn v0.8.3-0.20230531034231-98676523d063
 	github.com/lithammer/shortuuid v3.0.0+incompatible
 	github.com/logrusorgru/aurora v2.0.3+incompatible
+	github.com/looplab/fsm v1.0.1
 	github.com/ryanuber/go-glob v1.0.0
 	github.com/sirupsen/logrus v1.9.2
 	golang.org/x/crypto v0.9.0

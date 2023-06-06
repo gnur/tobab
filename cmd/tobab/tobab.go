@@ -10,6 +10,7 @@ import (
 	"github.com/gnur/tobab/clirpc"
 	"github.com/go-webauthn/webauthn/protocol"
 	_ "github.com/go-webauthn/webauthn/protocol"
+	"github.com/go-webauthn/webauthn/webauthn"
 	"github.com/lithammer/shortuuid"
 	"github.com/sirupsen/logrus"
 )
@@ -35,29 +36,35 @@ func (app *Tobab) setTobabRoutes(r *gin.Engine) {
 			return
 		}
 
-		user, ok := c.Get("USER")
-		if ok {
-			//this is kind of unsafe, but if it is found I will assume it is of the correct type as well
-			u := user.(*tobab.User)
-			if u.RegistrationFinished {
-				pklog.WithField("username", u.Name).Warning("user that alread exists in session is trying to register")
-				c.AbortWithStatus(http.StatusBadRequest)
-				return
-			}
+		sess := app.getSession(c.GetString("SESSION_ID"))
+		pklog.WithField("session_id", sess.ID).Debug("using session")
+
+		if sess.State == "registration" {
+			sess.FSM.Event(c, "finishRegistration")
+			sess.State = sess.FSM.Current()
+		}
+
+		if sess.FSM.Current() != "null" {
+			pklog.WithField("state", sess.FSM.Current()).Warning("invalid source state for this request")
+			c.AbortWithStatus(http.StatusBadRequest)
+			return
 		}
 
 		u, err := app.db.GetUserByName(regStart.Name)
-		if err == nil && u.RegistrationFinished {
-			pklog.WithField("username", u.Name).Warning("user that alread exists in db is trying to register")
-			c.AbortWithStatus(http.StatusBadRequest)
+		if err == nil {
+			pklog.WithField("username", u.Name).Warning("user that already exists in db is trying to register")
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+				"msg": "user already exists",
+			})
 			return
 		}
 
 		uid := shortuuid.New()
 		u = &tobab.User{
-			ID:      []byte(uid),
-			Name:    regStart.Name,
-			Created: time.Now(),
+			ID:       []byte(uid),
+			Name:     regStart.Name,
+			Created:  time.Now(),
+			LastSeen: time.Now(),
 		}
 
 		err = app.db.SetUser(*u)
@@ -67,7 +74,7 @@ func (app *Tobab) setTobabRoutes(r *gin.Engine) {
 			return
 		}
 
-		options, session, err := app.webauthn.BeginRegistration(u)
+		options, session, err := app.webauthn.BeginRegistration(u, webauthn.WithResidentKeyRequirement(protocol.ResidentKeyRequirementRequired))
 		pklog.WithFields(logrus.Fields{
 			"options": options,
 			"session": session,
@@ -78,16 +85,15 @@ func (app *Tobab) setTobabRoutes(r *gin.Engine) {
 			return
 		}
 
-		rawSession, ok := c.Get("SESSION")
-		if !ok {
-			pklog.WithError(err).Error("failed to get session")
+		sess.Data = session
+		sess.UserID = u.ID
+
+		err = sess.FSM.Event(c, "startRegistration")
+		if err != nil {
+			pklog.WithError(err).Error("failed to transition state")
 			c.AbortWithStatus(http.StatusInternalServerError)
 			return
 		}
-
-		sess := rawSession.(*tobab.Session)
-		sess.Data = session
-		sess.UserID = u.ID
 
 		err = app.db.SetSession(*sess)
 		if err != nil {
@@ -100,6 +106,16 @@ func (app *Tobab) setTobabRoutes(r *gin.Engine) {
 
 	})
 	pk.POST("/register/finish", func(c *gin.Context) {
+
+		sess := app.getSession(c.GetString("SESSION_ID"))
+		pklog.WithField("session_id", sess.ID).Debug("using session")
+
+		if sess.FSM.Current() != "registration" {
+			pklog.WithField("state", sess.FSM.Current()).Warning("invalid source state for this request")
+			c.AbortWithStatus(http.StatusBadRequest)
+			return
+		}
+
 		resp, err := protocol.ParseCredentialCreationResponseBody(c.Request.Body)
 		if err != nil {
 			pklog.WithError(err).Error("failed to parse credential body")
@@ -107,14 +123,6 @@ func (app *Tobab) setTobabRoutes(r *gin.Engine) {
 			return
 		}
 
-		rawSession, ok := c.Get("SESSION")
-		if !ok {
-			pklog.WithError(err).Error("failed to get session")
-			c.AbortWithStatus(http.StatusInternalServerError)
-			return
-		}
-
-		sess := rawSession.(*tobab.Session)
 		webSess := sess.Data
 
 		user, err := app.db.GetUser(sess.UserID)
@@ -146,11 +154,248 @@ func (app *Tobab) setTobabRoutes(r *gin.Engine) {
 			return
 		}
 
+		err = sess.FSM.Event(c, "finishRegistration")
+		if err != nil {
+			pklog.WithError(err).Error("failed to transition state")
+			c.AbortWithStatus(http.StatusInternalServerError)
+			return
+		}
+
+		err = app.db.SetSession(*sess)
+		if err != nil {
+			pklog.WithError(err).Error("failed to save session")
+			c.AbortWithStatus(http.StatusInternalServerError)
+			return
+		}
+
 		c.AbortWithStatus(http.StatusOK)
 	})
 
-	pk.POST("/login/start", func(c *gin.Context) {})
-	pk.POST("/login/finish", func(c *gin.Context) {})
+	pk.POST("/login/anystart", func(c *gin.Context) {
+
+		sess := app.getSession(c.GetString("SESSION_ID"))
+		pklog.WithField("session_id", sess.ID).Debug("using session")
+
+		if sess.State == "login" {
+			sess.FSM.Event(c, "loginFail")
+			sess.State = sess.FSM.Current()
+		}
+
+		if sess.State != "null" {
+			pklog.WithField("state", sess.FSM.Current()).Warning("invalid source state for this request")
+			c.AbortWithStatus(http.StatusBadRequest)
+			return
+		}
+
+		options, session, err := app.webauthn.BeginDiscoverableLogin()
+
+		if err != nil {
+			pklog.WithError(err).Error("failed to start webauthn login")
+			c.AbortWithStatus(http.StatusInternalServerError)
+			return
+		}
+
+		sess.Data = session
+
+		err = sess.FSM.Event(c, "startLogin")
+		if err != nil {
+			pklog.WithError(err).Error("failed to transition state")
+			c.AbortWithStatus(http.StatusInternalServerError)
+			return
+		}
+
+		err = app.db.SetSession(*sess)
+		if err != nil {
+			pklog.WithError(err).Error("failed to save session")
+			c.AbortWithStatus(http.StatusInternalServerError)
+			return
+		}
+
+		c.AbortWithStatusJSON(http.StatusOK, options)
+
+	})
+	pk.POST("/login/anyfinish", func(c *gin.Context) {
+
+		var loginStart RegistrationStart
+
+		err := c.BindJSON(&loginStart)
+		if err != nil {
+			pklog.WithError(err).Warning("failed to parse body")
+			c.AbortWithStatus(http.StatusBadRequest)
+			return
+		}
+
+		sess := app.getSession(c.GetString("SESSION_ID"))
+		pklog.WithField("session_id", sess.ID).Debug("using session")
+
+		if sess.FSM.Current() != "login" {
+			pklog.WithField("state", sess.FSM.Current()).Warning("invalid source state for this request")
+			c.AbortWithStatus(http.StatusBadRequest)
+			return
+		}
+
+		resp, err := protocol.ParseCredentialRequestResponseBody(c.Request.Body)
+		if err != nil {
+			pklog.WithError(err).Error("failed to parse credential body")
+			c.AbortWithStatus(http.StatusInternalServerError)
+			return
+		}
+
+		webSess := sess.Data
+
+		user, err := app.db.GetUserByName(loginStart.Name)
+		if err != nil {
+			pklog.WithError(err).Error("failed to retrieve user from session")
+			c.AbortWithStatus(http.StatusInternalServerError)
+			return
+		}
+
+		credential, err := app.webauthn.ValidateLogin(user, *webSess, resp)
+		if err != nil {
+			pklog.WithError(err).Error("failed to validate login")
+			c.AbortWithStatus(403)
+			return
+		}
+
+		err = sess.FSM.Event(c, "loginSuccess")
+		if err != nil {
+			pklog.WithError(err).Error("failed to transition state")
+			c.AbortWithStatus(http.StatusInternalServerError)
+			return
+		}
+
+		sess.UserID = user.WebAuthnID()
+
+		err = app.db.SetSession(*sess)
+		if err != nil {
+			pklog.WithError(err).Error("failed to save session")
+			c.AbortWithStatus(http.StatusInternalServerError)
+			return
+		}
+
+		pklog.WithField("cred", credential.ID).Debug("success logging in!")
+
+		c.AbortWithStatus(http.StatusOK)
+
+	})
+
+	pk.POST("/login/start", func(c *gin.Context) {
+		sess := app.getSession(c.GetString("SESSION_ID"))
+		pklog.WithField("session_id", sess.ID).Debug("using session")
+
+		if sess.State == "login" {
+			sess.FSM.Event(c, "loginFail")
+			sess.State = sess.FSM.Current()
+		}
+
+		if sess.State != "null" {
+			pklog.WithField("state", sess.FSM.Current()).Warning("invalid source state for this request")
+			c.AbortWithStatus(http.StatusBadRequest)
+			return
+		}
+
+		var loginStart RegistrationStart
+
+		err := c.BindJSON(&loginStart)
+		if err != nil {
+			pklog.WithError(err).Warning("failed to parse body")
+			c.AbortWithStatus(http.StatusBadRequest)
+			return
+		}
+
+		u, err := app.db.GetUserByName(loginStart.Name)
+		if err != nil {
+			pklog.WithField("username", u.Name).Warning("unknown username provided")
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+				"msg": "unknown user",
+			})
+			return
+		}
+
+		options, session, err := app.webauthn.BeginLogin(u)
+		if err != nil {
+			pklog.WithError(err).Error("failed to start webauthn login")
+			c.AbortWithStatus(http.StatusInternalServerError)
+			return
+		}
+
+		sess.Data = session
+		sess.UserID = u.ID
+
+		err = sess.FSM.Event(c, "startLogin")
+		if err != nil {
+			pklog.WithError(err).Error("failed to transition state")
+			c.AbortWithStatus(http.StatusInternalServerError)
+			return
+		}
+
+		err = app.db.SetSession(*sess)
+		if err != nil {
+			pklog.WithError(err).Error("failed to save session")
+			c.AbortWithStatus(http.StatusInternalServerError)
+			return
+		}
+
+		c.AbortWithStatusJSON(http.StatusOK, options)
+
+	})
+	pk.POST("/login/finish", func(c *gin.Context) {
+
+		sess := app.getSession(c.GetString("SESSION_ID"))
+		pklog.WithField("session_id", sess.ID).Debug("using session")
+
+		if sess.FSM.Current() != "login" {
+			pklog.WithField("state", sess.FSM.Current()).Warning("invalid source state for this request")
+			c.AbortWithStatus(http.StatusBadRequest)
+			return
+		}
+
+		resp, err := protocol.ParseCredentialRequestResponseBody(c.Request.Body)
+		if err != nil {
+			pklog.WithError(err).Error("failed to parse credential body")
+			c.AbortWithStatus(http.StatusInternalServerError)
+			return
+		}
+
+		webSess := sess.Data
+
+		user, err := app.db.GetUser(resp.Response.UserHandle)
+		if err != nil {
+			pklog.WithError(err).Error("failed to retrieve user from session")
+			c.AbortWithStatus(http.StatusInternalServerError)
+			return
+		}
+
+		webSess.UserID = user.WebAuthnID()
+
+		credential, err := app.webauthn.ValidateLogin(user, *webSess, resp)
+		if err != nil {
+			pklog.WithError(err).Error("failed to validate login")
+			c.AbortWithStatus(403)
+			return
+		}
+
+		err = sess.FSM.Event(c, "loginSuccess")
+		if err != nil {
+			pklog.WithError(err).Error("failed to transition state")
+			c.AbortWithStatus(http.StatusInternalServerError)
+			return
+		}
+
+		sess.UserID = user.WebAuthnID()
+
+		err = app.db.SetSession(*sess)
+		if err != nil {
+			pklog.WithError(err).Error("failed to save session")
+			c.AbortWithStatus(http.StatusInternalServerError)
+			return
+		}
+
+		pklog.WithField("cred", credential.ID).Debug("success logging in!")
+
+		c.AbortWithStatus(http.StatusOK)
+
+	})
 
 	api := r.Group("/v1/api/")
 	api.Use(app.adminMiddleware())
@@ -211,31 +456,100 @@ func (app *Tobab) setTobabRoutes(r *gin.Engine) {
 
 	})
 
-	r.GET("/", func(c *gin.Context) {
-		providerIndex := &ProviderIndex{Providers: []string{"google"}, ProvidersMap: map[string]string{"google": "Google"}}
+	r.GET("/register.html", func(c *gin.Context) {
 
-		user, err := app.extractUser(c.Request)
-		if err == nil {
-			providerIndex.User = user
-		} else {
-			app.logger.WithError(err).Error("unable to get user from request")
+		var user *tobab.User
+		var err error
+
+		sess := app.getSession(c.GetString("SESSION_ID"))
+
+		if sess.State == "authenticated" {
+			user, err = app.db.GetUser(sess.UserID)
+			if err != nil {
+				pklog.WithError(err).Error("failed to retrieve user from session")
+				c.AbortWithStatus(http.StatusInternalServerError)
+				return
+			}
+			c.Redirect(307, "/")
 		}
 
-		c.HTML(200, "index.html", providerIndex)
+		if sess.State != "null" {
+			if sess.State == "login" {
+				err = sess.FSM.Event(c, "loginFail")
+				if err != nil {
+					pklog.WithError(err).Error("failed to transition state")
+					c.AbortWithStatus(http.StatusInternalServerError)
+					return
+				}
+
+				err = app.db.SetSession(*sess)
+				if err != nil {
+					pklog.WithError(err).Error("failed to save session")
+					c.AbortWithStatus(http.StatusInternalServerError)
+					return
+				}
+			}
+		}
+
+		name := "unknown"
+		if user != nil {
+			name = user.Name
+		}
+
+		c.HTML(200, "register.html", indexVars{
+			State:    sess.State,
+			Username: name,
+		})
+	})
+
+	r.GET("/register", func(c *gin.Context) {
+		c.SetCookie(COOKIE_NAME, "", -1, "/", app.config.CookieScope, true, true)
+		c.Redirect(307, "/register.html")
+	})
+
+	r.GET("/signout", func(c *gin.Context) {
+		c.SetCookie(COOKIE_NAME, "", -1, "/", app.config.CookieScope, true, true)
+		c.Redirect(307, "/")
+	})
+
+	r.GET("/", func(c *gin.Context) {
+
+		var user *tobab.User
+		var err error
+		sess := app.getSession(c.GetString("SESSION_ID"))
+
+		if sess.State == "authenticated" {
+			user, err = app.db.GetUser(sess.UserID)
+			if err != nil {
+				pklog.WithError(err).Error("failed to retrieve user from session")
+				c.AbortWithStatus(http.StatusInternalServerError)
+				return
+			}
+
+		}
+		name := "unknown"
+		if user != nil {
+			name = user.Name
+		}
+
+		c.HTML(200, "index.html", indexVars{
+			State:    sess.State,
+			Username: name,
+		})
 	})
 
 	r.StaticFS("/static", mustFS())
 }
 
+type indexVars struct {
+	State string
+
+	Username string
+}
+
 func mustFS() http.FileSystem {
 	sub, _ := fs.Sub(staticFS, "static")
 	return http.FS(sub)
-}
-
-type ProviderIndex struct {
-	Providers    []string
-	ProvidersMap map[string]string
-	User         string
 }
 
 func (app *Tobab) GetHosts(in *clirpc.Empty, out *clirpc.GetHostsOut) error {
