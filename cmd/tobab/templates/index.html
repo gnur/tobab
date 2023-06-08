@@ -1,44 +1,45 @@
 {{define "index.html"}}
-<!DOCTYPE html>
-<html>
 
-<head>
-    <title>tobab</title>
-    <script src="/static/base64url.js"></script>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="stylesheet" href="/static/main.css" />
-    <script src="/static/main.js" defer></script>
-</head>
+{{template "head.html" .}}
 
-<body>
-    <div class="flex-container">
-        <div class="row">
+<div class="relative flex min-h-screen flex-col justify-center overflow-hidden bg-gray-900 py-6 sm:py-12">
+    <div
+        class="relative bg-white px-6 pb-8 pt-10 shadow-xl ring-1 ring-gray-900/5 sm:mx-auto sm:max-w-lg sm:rounded-lg sm:px-10">
+        <div class="mx-auto max-w-md">
+
             {{if eq .State "authenticated"}}
             <h1>Hi {{.Username}}</h1>
-            <a href="/signout">signout</a>
             <div id="passkey"></div>
             {{else}}
-                <label for="username">Username:</label><br>
-                <input type="text" id="username" placeholder="username" required autofocus autocomplete="webauthn"></input><br>
 
-                <button type="submit" id="passkeyLogin" value="login">login with passkey</button>
 
-                <div id="passkey">
+            <div class="divide-y divide-gray-300/50">
+                <div class="relative">
+                    <div class="font-bold text-xl mb-5 text-gray-700">Sign in with passkey</div>
+                    <form>
+                        <input type="text" id="username"
+                            class="block w-full rounded-lg border border-gray-300 bg-gray-50 p-4 pr-32 text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 "
+                            placeholder="username" autofocus autocomplete="webauthn" required />
+                        <button type="submit" id="passkeyLogin"
+                            class="absolute bottom-2.5 right-2.5 rounded-lg bg-blue-700 px-4 py-2 text-sm font-medium text-white hover:bg-blue-800 focus:outline-none focus:ring-4 focus:ring-blue-300 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">login</button>
+                    </form>
                 </div>
-                <a href="/register">register</a>
-            
-            
+            </div>
+            <div id="passkey">
+            </div>
             {{end}}
         </div>
     </div>
+</div>
+
 <dialog id="messages">
-<form>
-    <div id="error-div">
-    </div>
+    <form>
+        <div id="error-div">
+        </div>
         <div>
-      <button value="cancel" formmethod="dialog">ok</button>
-    </div>
-</form>
+            <button value="cancel" formmethod="dialog">ok</button>
+        </div>
+    </form>
 </dialog>
 </body>
 

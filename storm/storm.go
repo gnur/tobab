@@ -1,9 +1,11 @@
 package storm
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/asdine/storm"
+	"github.com/asdine/storm/q"
 	"github.com/gnur/tobab"
 )
 
@@ -100,4 +102,10 @@ func (db *stormDB) SetSession(s tobab.Session) error {
 
 func (db *stormDB) CleanupOldSessions() {
 	//TODO: create this
+	var sess []tobab.Session
+	q := db.db.Select(q.Lte("Expires", time.Now()))
+	q.Find(&sess)
+	for _, s := range sess {
+		fmt.Println(s.Expires)
+	}
 }

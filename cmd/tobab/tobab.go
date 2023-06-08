@@ -110,6 +110,11 @@ func (app *Tobab) setTobabRoutes(r *gin.Engine) {
 		sess := app.getSession(c.GetString("SESSION_ID"))
 		pklog.WithField("session_id", sess.ID).Debug("using session")
 
+		defer func() {
+			sess.Data = &webauthn.SessionData{}
+			app.db.SetSession(*sess)
+		}()
+
 		if sess.FSM.Current() != "registration" {
 			pklog.WithField("state", sess.FSM.Current()).Warning("invalid source state for this request")
 			c.AbortWithStatus(http.StatusBadRequest)
@@ -227,6 +232,11 @@ func (app *Tobab) setTobabRoutes(r *gin.Engine) {
 
 		sess := app.getSession(c.GetString("SESSION_ID"))
 		pklog.WithField("session_id", sess.ID).Debug("using session")
+
+		defer func() {
+			sess.Data = &webauthn.SessionData{}
+			app.db.SetSession(*sess)
+		}()
 
 		if sess.FSM.Current() != "login" {
 			pklog.WithField("state", sess.FSM.Current()).Warning("invalid source state for this request")
@@ -502,12 +512,29 @@ func (app *Tobab) setTobabRoutes(r *gin.Engine) {
 		})
 	})
 
+	r.GET("/clean-sessions", func(c *gin.Context) {
+
+		app.db.CleanupOldSessions()
+
+		c.AbortWithStatus(202)
+	})
+
 	r.GET("/register", func(c *gin.Context) {
+
+		sess := app.getSession(c.GetString("SESSION_ID"))
+		sess.Expires = time.Now().Add(-2 * app.maxAge)
+		app.db.SetSession(*sess)
+
 		c.SetCookie(COOKIE_NAME, "", -1, "/", app.config.CookieScope, true, true)
 		c.Redirect(307, "/register.html")
 	})
 
 	r.GET("/signout", func(c *gin.Context) {
+
+		sess := app.getSession(c.GetString("SESSION_ID"))
+		sess.Expires = time.Now().Add(-2 * app.maxAge)
+		app.db.SetSession(*sess)
+
 		c.SetCookie(COOKIE_NAME, "", -1, "/", app.config.CookieScope, true, true)
 		c.Redirect(307, "/")
 	})

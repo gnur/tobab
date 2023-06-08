@@ -74,7 +74,7 @@ type Session struct {
 	UserID   []byte
 	Created  time.Time
 	LastSeen time.Time
-	Expires  time.Time
+	Expires  time.Time `storm:"index"`
 	Vals     map[string]string
 	Data     *webauthn.SessionData
 	FSM      *fsm.FSM

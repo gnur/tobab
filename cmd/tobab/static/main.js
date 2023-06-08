@@ -2,7 +2,6 @@ let abortController;
 let abortSignal;
 
 function onload() {
-  console.log("loaded");
   if (!window.PublicKeyCredential || !PublicKeyCredential.isConditionalMediationAvailable) {
     console.log("no window.PublicKeyCredential");
     return;
@@ -16,13 +15,18 @@ function onload() {
       if (div) {
         div.style.display = "block";
         try {
+          console.log("setting up eventlister for registration");
           document.getElementById("create-account").addEventListener("submit", (a, event) => {
-            console.log(a);
-
             a.preventDefault();
+            let but = document.getElementById("createbutton")
+            but.classList.replace("bg-blue-700", "bg-gray-200");
+            but.classList.replace("dark:bg-blue-600", "dark:bg-gray-200");
+
             startRegister();
           }, false);
-        } catch { }
+        } catch (e) {
+          console.log("Caught some error", e)
+        }
         let loginBtn = document.querySelector("#passkeyLogin")
         if (loginBtn) {
           loginBtn.addEventListener("click", e => {
@@ -192,7 +196,6 @@ function startLogin(event) {
     event.preventDefault();
   } catch { };
 
-  abortController
   let username = document.querySelector("#username").value;
   if (username == "") {
     showError("Invalid username");
