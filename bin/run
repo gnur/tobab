@@ -1,5 +1,0 @@
-#!/bin/bash
-
-export TOBAB_CONFIG=./config.toml
-
-go run ./cmd/tobab -c ./config.toml run

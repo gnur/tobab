@@ -17,6 +17,7 @@ import (
 
 type Config struct {
 	Hostname        string `valid:"dns"`
+	Dev             bool
 	Displayname     string `valid:"required"`
 	DefaultTokenAge string
 	MaxTokenAge     string

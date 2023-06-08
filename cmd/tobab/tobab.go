@@ -565,7 +565,7 @@ func (app *Tobab) setTobabRoutes(r *gin.Engine) {
 		})
 	})
 
-	r.StaticFS("/static", mustFS())
+	r.StaticFS("/static", app.mustFS())
 }
 
 type indexVars struct {
@@ -574,7 +574,10 @@ type indexVars struct {
 	Username string
 }
 
-func mustFS() http.FileSystem {
+func (app *Tobab) mustFS() http.FileSystem {
+	if app.config.Dev {
+		return http.Dir("cmd/tobab/static")
+	}
 	sub, _ := fs.Sub(staticFS, "static")
 	return http.FS(sub)
 }

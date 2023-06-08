@@ -190,10 +190,21 @@ func (app *Tobab) setupProxies() {
 func (app *Tobab) startServer() {
 	app.logger.Info("starting server")
 
-	gin.SetMode(gin.ReleaseMode)
+	if app.config.Dev {
+		gin.SetMode(gin.DebugMode)
+	} else {
+		gin.SetMode(gin.ReleaseMode)
+	}
+
 	r := gin.Default()
 
-	r.SetHTMLTemplate(app.templates)
+	if app.config.Dev {
+		gin.SetMode(gin.DebugMode)
+		r.LoadHTMLGlob("cmd/tobab/templates/*.html")
+	} else {
+		gin.SetMode(gin.ReleaseMode)
+		r.SetHTMLTemplate(app.templates)
+	}
 	certHosts := []string{app.config.Hostname}
 
 	app.setupProxies()
