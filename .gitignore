@@ -21,3 +21,7 @@ bin/deploy
 ubby.toml
 pkged.go
 /tobab
+
+tmp/*
+config.toml
+dist/

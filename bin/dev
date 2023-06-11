@@ -1,0 +1,8 @@
+#!/bin/bash
+
+air &
+
+npx tailwindcss -i ./css/in.css -o ./cmd/tobab/static/main.css --watch 
+
+
+wait
