@@ -560,5 +560,8 @@ func (app *Tobab) verifyForwardAuth(c *gin.Context) {
 	})
 
 	ll.Warning("Return 200 to unknown user")
-	c.AbortWithStatus(200)
+	if user.Name == "erwin" {
+		c.AbortWithStatus(200)
+	}
+	c.Redirect(308, app.fqdn)
 }
