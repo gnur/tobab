@@ -5,7 +5,7 @@ COPY go.* /workdir/
 RUN go mod download
 COPY . /workdir/
 
-RUN CGO_ENABLED=0 go build -ldflags="-s -w" -a -installsuffix cgo -o tobab .
+RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o tobab ./cmd/tobab/
 
 
 FROM gcr.io/distroless/static-debian11

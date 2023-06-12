@@ -4,7 +4,6 @@ go 1.20
 
 require (
 	github.com/BurntSushi/toml v1.3.0
-	github.com/alecthomas/kong v0.7.1
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2
 	github.com/asdine/storm v2.1.2+incompatible
 	github.com/gin-contrib/gzip v0.0.6

@@ -1,5 +1,7 @@
 #!/bin/bash
 
+export TOBAB_TOML="config.toml"
+
 air &
 
 npx tailwindcss -i ./css/in.css -o ./cmd/tobab/static/main.css --watch 

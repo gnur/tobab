@@ -19,8 +19,6 @@ type Config struct {
 	DefaultTokenAge string
 	MaxTokenAge     string
 	CookieScope     string `valid:"required"`
-	Secret          string `valid:"required"`
-	Salt            string `valid:"required"`
 	Loglevel        string
 	DatabasePath    string `valid:"required"`
 	AdminGlobs      []Glob `valid:"required"`
