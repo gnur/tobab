@@ -455,6 +455,8 @@ func (app *Tobab) setTobabRoutes(r *gin.Engine) {
 		})
 	})
 
+	r.GET("/verify", app.verifyForwardAuth)
+
 	r.GET("/clean-sessions", func(c *gin.Context) {
 
 		app.db.CleanupOldSessions()
@@ -523,4 +525,40 @@ func (app *Tobab) mustFS() http.FileSystem {
 	}
 	sub, _ := fs.Sub(staticFS, "static")
 	return http.FS(sub)
+}
+
+func (app *Tobab) verifyForwardAuth(c *gin.Context) {
+	var user *tobab.User
+	var err error
+
+	ll := app.logger.WithField("service", "verify")
+	sess := app.getSession(c.GetString("SESSION_ID"))
+
+	host := c.GetHeader("X-Forwarded-Host")
+	proto := c.GetHeader("X-Forwarded-Proto")
+	uri := c.GetHeader("X-Forwarded-Uri")
+	u := "unknown"
+
+	if sess.State == "authenticated" {
+		user, err = app.db.GetUser(sess.UserID)
+		if err != nil {
+			ll.WithError(err).Error("failed to retrieve user from session")
+			c.AbortWithStatus(http.StatusInternalServerError)
+			return
+		}
+	}
+
+	if sess.UserID != nil {
+		u = user.Name
+	}
+
+	ll = app.logger.WithFields(logrus.Fields{
+		"host":  host,
+		"proto": proto,
+		"uri":   uri,
+		"user":  u,
+	})
+
+	ll.Warning("Return 200 to unknown user")
+	c.AbortWithStatus(200)
 }
