@@ -51,5 +51,3 @@ jobs:
           tags: |
             ghcr.io/gnur/tobab:${{ steps.ghd.outputs.describe }}
             ghcr.io/gnur/tobab:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
