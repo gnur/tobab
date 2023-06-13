@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/asdine/storm"
 	"github.com/gin-gonic/gin"
 	"github.com/gnur/tobab"
 	"github.com/go-webauthn/webauthn/protocol"
@@ -406,9 +407,6 @@ func (app *Tobab) setTobabRoutes(r *gin.Engine) {
 
 	})
 
-	api := r.Group("/v1/api/")
-	api.Use(app.adminMiddleware())
-
 	r.GET("/register.html", func(c *gin.Context) {
 
 		var user *tobab.User
@@ -449,20 +447,13 @@ func (app *Tobab) setTobabRoutes(r *gin.Engine) {
 			name = user.Name
 		}
 
-		c.HTML(200, "register.html", indexVars{
+		c.HTML(200, "register.html", tplVars{
 			State:    sess.State,
 			Username: name,
 		})
 	})
 
 	r.GET("/verify", app.verifyForwardAuth)
-
-	r.GET("/clean-sessions", func(c *gin.Context) {
-
-		app.db.CleanupOldSessions()
-
-		c.AbortWithStatus(202)
-	})
 
 	r.GET("/register", func(c *gin.Context) {
 
@@ -482,6 +473,66 @@ func (app *Tobab) setTobabRoutes(r *gin.Engine) {
 
 		c.SetCookie(COOKIE_NAME, "", -1, "/", app.config.CookieScope, true, true)
 		c.Redirect(307, "/")
+	})
+
+	admin := r.Group("/admin")
+	admin.Use(app.adminMiddleware())
+
+	admin.POST("/toggleAccess", func(c *gin.Context) {
+		userName := c.Query("user")
+		hostName := c.Query("host")
+
+		u, err := app.db.GetUserByName(userName)
+		if err != nil {
+			app.logger.WithError(err).Warning("invalid username provided")
+			c.AbortWithStatus(http.StatusBadRequest)
+			return
+		}
+
+		hosts := app.getHosts()
+		if !tobab.Contains(hosts, hostName) {
+			app.logger.Warning("invalid hostname provided")
+			c.AbortWithStatus(http.StatusBadRequest)
+			return
+		}
+
+		found := false
+
+		for i, h := range u.AccessibleHosts {
+			if h == hostName {
+				u.AccessibleHosts = append(u.AccessibleHosts[:i], u.AccessibleHosts[i+1:]...)
+				found = true
+				break
+			}
+		}
+		if !found {
+			u.AccessibleHosts = append(u.AccessibleHosts, hostName)
+		}
+		err = app.db.SetUser(*u)
+		if err != nil {
+			app.logger.WithError(err).Warning("Failed to update user")
+			c.AbortWithStatus(http.StatusInternalServerError)
+			return
+		}
+
+		c.JSON(200, gin.H{})
+	})
+
+	admin.GET("/index.html", func(c *gin.Context) {
+
+		users, err := app.db.GetUsers()
+		if err != nil {
+			app.logger.WithError(err).Error("failed to retrieve users from database")
+			c.AbortWithStatus(http.StatusInternalServerError)
+			return
+		}
+
+		hosts := app.getHosts()
+
+		c.HTML(200, "admin.html", adminVars{
+			Users: users,
+			Hosts: hosts,
+		})
 	})
 
 	r.GET("/", func(c *gin.Context) {
@@ -504,8 +555,9 @@ func (app *Tobab) setTobabRoutes(r *gin.Engine) {
 			name = user.Name
 		}
 
-		c.HTML(200, "index.html", indexVars{
+		c.HTML(200, "index.html", tplVars{
 			State:    sess.State,
+			User:     user,
 			Username: name,
 		})
 	})
@@ -513,8 +565,17 @@ func (app *Tobab) setTobabRoutes(r *gin.Engine) {
 	r.StaticFS("/static", app.mustFS())
 }
 
-type indexVars struct {
+type adminVars struct {
 	State string
+	User  tobab.User
+
+	Users []tobab.User
+	Hosts []string
+}
+
+type tplVars struct {
+	State string
+	User  *tobab.User
 
 	Username string
 }
@@ -539,17 +600,23 @@ func (app *Tobab) verifyForwardAuth(c *gin.Context) {
 	uri := c.GetHeader("X-Forwarded-Uri")
 	u := "unknown"
 
-	if sess.State == "authenticated" {
-		user, err = app.db.GetUser(sess.UserID)
-		if err != nil {
-			ll.WithError(err).Error("failed to retrieve user from session")
-			c.AbortWithStatus(http.StatusInternalServerError)
-			return
-		}
+	app.addHost(host)
+
+	if sess.State != "authenticated" {
+		c.Redirect(http.StatusTemporaryRedirect, "/")
+		return
 	}
 
-	if sess.UserID != nil {
-		u = user.Name
+	user, err = app.db.GetUser(sess.UserID)
+	if err != nil && err != storm.ErrNotFound {
+		ll.WithError(err).Error("failed to retrieve user from session")
+		c.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+
+	if user == nil {
+		c.Redirect(http.StatusTemporaryRedirect, "/")
+		return
 	}
 
 	ll = app.logger.WithFields(logrus.Fields{
@@ -559,9 +626,18 @@ func (app *Tobab) verifyForwardAuth(c *gin.Context) {
 		"user":  u,
 	})
 
-	ll.Warning("Return 200 to unknown user")
-	if user.Name == "erwin" {
+	if user.Admin {
+		ll.Info("Return 200 to admin")
 		c.AbortWithStatus(200)
+		return
 	}
+
+	if user.CanAccess(host) {
+		ll.Info("Return 200 to user")
+		c.AbortWithStatus(200)
+		return
+	}
+
+	ll.Warning("Return 308 to unknown user")
 	c.Redirect(308, app.fqdn)
 }

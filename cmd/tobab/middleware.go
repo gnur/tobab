@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/sirupsen/logrus"
+	"github.com/gnur/tobab"
 )
 
 const COOKIE_NAME = "X-Tobab-Session-ID"
@@ -23,14 +23,24 @@ func (app *Tobab) getSessionMiddleware() gin.HandlerFunc {
 
 func (app *Tobab) adminMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		var user *tobab.User
+		var err error
+		sess := app.getSession(c.GetString("SESSION_ID"))
 
-		u := c.Request.Header.Get("X-Tobab-User")
-		if u == "" || !allowAdmin(u, app.config.AdminGlobs) {
-			app.logger.WithFields(logrus.Fields{
-				"user":  u,
-				"globs": app.config.AdminGlobs,
-			}).Debug("denying request")
-			c.AbortWithStatus(http.StatusUnauthorized)
+		if sess.State != "authenticated" {
+			c.Redirect(http.StatusTemporaryRedirect, "/")
+			return
+		}
+
+		user, err = app.db.GetUser(sess.UserID)
+		if err != nil {
+			app.logger.WithError(err).Error("failed to retrieve user from session")
+			c.Redirect(http.StatusTemporaryRedirect, "/")
+			return
+		}
+
+		if !user.Admin {
+			c.Redirect(http.StatusTemporaryRedirect, "/")
 			return
 		}
 

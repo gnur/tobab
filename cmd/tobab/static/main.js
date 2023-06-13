@@ -263,5 +263,3 @@ function startLogin(event) {
 
 
 window.onload = onload();
-
-//thest

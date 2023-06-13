@@ -21,12 +21,6 @@ type Config struct {
 	CookieScope     string `valid:"required"`
 	Loglevel        string
 	DatabasePath    string `valid:"required"`
-	AdminGlobs      []Glob `valid:"required"`
-}
-
-type Host struct {
-	Hostname string `storm:"id" valid:"dns"`
-	Public   bool
 }
 
 type User struct {
@@ -36,7 +30,15 @@ type User struct {
 	Created              time.Time
 	LastSeen             time.Time
 	Admin                bool
+	AccessibleHosts      []string
 	Creds                []webauthn.Credential
+}
+
+func (user *User) CanAccess(h string) bool {
+	if user.Admin {
+		return true
+	}
+	return Contains(user.AccessibleHosts, h)
 }
 
 func (user *User) WebAuthnID() []byte {
@@ -103,4 +105,13 @@ func LoadConf(path string) (Config, error) {
 	}
 	return cfg, err
 
+}
+
+func Contains(s []string, e string) bool {
+	for _, a := range s {
+		if a == e {
+			return true
+		}
+	}
+	return false
 }

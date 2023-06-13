@@ -39,34 +39,18 @@ func (db *stormDB) KVGetBool(k string) (bool, error) {
 	err := db.db.Get("tobab", k, &b)
 	return b, err
 }
-func (db *stormDB) KVGet(k string, v *any) error {
-	return db.db.Get("tobab", k, v)
-}
-
-func (db *stormDB) AddHost(h tobab.Host) error {
-	return db.db.Save(&h)
-}
-
-func (db *stormDB) GetHost(hostname string) (*tobab.Host, error) {
-	var h tobab.Host
-	err := db.db.One("Hostname", hostname, &h)
-	return &h, err
-}
-func (db *stormDB) GetHosts() ([]tobab.Host, error) {
-	var hosts []tobab.Host
-	err := db.db.All(&hosts)
-	return hosts, err
-}
-func (db *stormDB) DeleteHost(hostname string) error {
-	h, err := db.GetHost(hostname)
-	if err != nil {
-		return err
-	}
-	return db.db.DeleteStruct(h)
+func (db *stormDB) KVGet(k string, v any) error {
+	return db.db.Get("tobab", k, &v)
 }
 
 func (db *stormDB) Close() {
 	db.db.Close()
+}
+
+func (db *stormDB) GetUsers() ([]tobab.User, error) {
+	var users []tobab.User
+	err := db.db.All(&users)
+	return users, err
 }
 
 func (db *stormDB) GetUser(id []byte) (*tobab.User, error) {
@@ -101,11 +85,11 @@ func (db *stormDB) SetSession(s tobab.Session) error {
 }
 
 func (db *stormDB) CleanupOldSessions() {
-	//TODO: create this
 	var sess []tobab.Session
 	q := db.db.Select(q.Lte("Expires", time.Now()))
 	q.Find(&sess)
 	for _, s := range sess {
 		fmt.Println(s.Expires)
+		db.db.DeleteStruct(&s)
 	}
 }

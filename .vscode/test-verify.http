@@ -1,0 +1,16 @@
+# @no-redirect	
+GET http://localhost:8080/verify
+Cookie: X-Tobab-Session-ID=HC7Zjm5bK9NTdfDEjYbZbc
+X-Forwarded-Host: shell.fzzbzz.dev
+X-Forwarded-Method: GET
+X-Forwarded-Proto: https
+X-Forwarded-Uri: /ws
+
+###
+
+# @no-redirect	
+GET http://localhost:8080/verify
+X-Forwarded-Host: shell2.fzzbzz.dev
+X-Forwarded-Method: GET
+X-Forwarded-Proto: https
+X-Forwarded-Uri: /ws

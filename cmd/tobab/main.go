@@ -58,10 +58,15 @@ func main() {
 	}
 	defer db.Close()
 
+	fqdn := "https://" + cfg.Hostname
+	if cfg.Dev {
+		fqdn = "http://localhost:8080"
+	}
+
 	wconfig := &webauthn.Config{
 		RPDisplayName: cfg.Displayname,
 		RPID:          cfg.CookieScope,
-		RPOrigins:     []string{"https://" + cfg.Hostname},
+		RPOrigins:     []string{fqdn},
 	}
 
 	w, err := webauthn.New(wconfig)
@@ -73,7 +78,7 @@ func main() {
 		config:   cfg,
 		logger:   logger.WithField("version", version),
 		maxAge:   720 * time.Hour,
-		fqdn:     "https://" + cfg.Hostname,
+		fqdn:     fqdn,
 		confLoc:  confLoc,
 		db:       db,
 		webauthn: w,
@@ -102,6 +107,9 @@ func main() {
 	if err != nil {
 		logger.WithError(err).Fatal("unable to load templates")
 	}
+
+	go app.cleanSessionsLoop()
+
 	app.startServer()
 
 }
@@ -119,6 +127,7 @@ func (app *Tobab) startServer() {
 
 	if app.config.Dev {
 		gin.SetMode(gin.DebugMode)
+		r.SetFuncMap(templateFunctions)
 		r.LoadHTMLGlob("cmd/tobab/templates/*.html")
 	} else {
 		gin.SetMode(gin.ReleaseMode)
@@ -132,5 +141,42 @@ func (app *Tobab) startServer() {
 	err := r.Run()
 	if err != nil {
 		app.logger.WithError(err).Error("Failed to start web server")
+	}
+}
+
+func (app *Tobab) getHosts() []string {
+	var hosts []string
+	err := app.db.KVGet("hosts", &hosts)
+	if err != nil {
+		app.logger.WithError(err).Error("Failed to get hosts")
+	}
+	return hosts
+}
+
+func (app *Tobab) addHost(h string) {
+	var hosts []string
+
+	err := app.db.KVGet("hosts", &hosts)
+	if err != nil {
+		app.logger.WithError(err).Error("Failed to get hosts")
+	}
+
+	if tobab.Contains(hosts, h) {
+		return
+	}
+
+	hosts = append(hosts, h)
+	err = app.db.KVSet("hosts", hosts)
+	if err != nil {
+		app.logger.WithError(err).Error("Failed to set hosts")
+	}
+}
+
+func (app *Tobab) cleanSessionsLoop() {
+	time.Sleep(2 * time.Second)
+	for {
+		app.logger.Info("cleaning old sessions")
+		app.db.CleanupOldSessions()
+		time.Sleep(time.Hour)
 	}
 }

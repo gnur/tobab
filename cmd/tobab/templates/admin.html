@@ -1,0 +1,63 @@
+{{define "admin.html"}}
+{{template "head.html" .}}
+
+
+<main class="container">
+    <article class="grid">
+        <div id="users">
+            <hgroup>
+                <h1>Users</h1>
+            </hgroup>
+            <table role="grid">
+                <thead>
+                    <tr>
+                        <th scope="col">User</th>
+                        {{range .Hosts}}
+                        <th scope="col">{{.}}</th>
+                        {{end}}
+                    </tr>
+                </thead>
+                <tbody>
+                    {{range .Users}}
+                    {{$user := .}}
+                    <tr>
+                        <td>
+                            <details>
+                                <summary>{{.Name}}</summary>
+                                <ul>
+                                    <li>ID: {{printf "%s" .ID}}</li>
+                                    <li>Admin: {{.Admin}}</li>
+                                    <li>RegistrationFinished: {{.RegistrationFinished}}</li>
+                                    <li>Created: {{.Created | prettyTime}}</li>
+                                    <li>Lastseen: {{.LastSeen | relativeTime}}</li>
+                                </ul>
+                            </details>
+                        </td>
+                        {{range $.Hosts}}
+                        <td>
+                            <input hx-post="/admin/toggleAccess?user={{$user.Name}}&host={{.}}" hx-trigger="click"
+                                type="checkbox" id="switch" name="switch" role="switch" {{if $user.CanAccess
+                                .}}checked{{end}} {{if $user.Admin}}disabled{{end}}>
+                        </td>
+                        {{end}}
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+        </div>
+    </article>
+</main>
+
+<dialog id="messages">
+    <form>
+        <div id="error-div">
+        </div>
+        <div>
+            <button value="cancel" formmethod="dialog">ok</button>
+        </div>
+    </form>
+</dialog>
+</body>
+
+</html>
+{{end}}

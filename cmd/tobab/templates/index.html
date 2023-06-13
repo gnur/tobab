@@ -2,35 +2,35 @@
 
 {{template "head.html" .}}
 
-<div class="relative flex min-h-screen flex-col justify-center overflow-hidden bg-gray-900 py-6 sm:py-12">
-    <div
-        class="relative bg-white px-6 pb-8 pt-10 shadow-xl ring-1 ring-gray-900/5 sm:mx-auto sm:max-w-lg sm:rounded-lg sm:px-10">
-        <div class="mx-auto max-w-md">
-
-            {{if eq .State "authenticated"}}
-            <h1>Hi {{.Username}}</h1>
-            <div id="passkey"></div>
-            {{else}}
-
-
-            <div class="divide-y divide-gray-300/50">
-                <div class="relative">
-                    <div class="font-bold text-xl mb-5 text-gray-700">Sign in with passkey</div>
-                    <form>
-                        <input type="text" id="username"
-                            class="block w-full rounded-lg border border-gray-300 bg-gray-50 p-4 pr-32 text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 "
-                            placeholder="username" autofocus autocomplete="webauthn" required />
-                        <button type="submit" id="passkeyLogin"
-                            class="absolute bottom-2.5 right-2.5 rounded-lg bg-blue-700 px-4 py-2 text-sm font-medium text-white hover:bg-blue-800 focus:outline-none focus:ring-4 focus:ring-blue-300 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">login</button>
-                    </form>
-                </div>
-            </div>
+<main class="container">
+    <article class="grid">
+        <div>
+            <hgroup>
+                {{if eq .State "authenticated"}}
+                <h1>Hi {{.Username}}</h1>
+                {{else}}
+                <h1>Sign in with passkey</h1>
+                {{end}}
+            </hgroup>
             <div id="passkey">
+                {{if ne .State "authenticated"}}
+                <form>
+                    <input type="text" id="username" placeholder="username" autofocus autocomplete="webauthn"
+                        required />
+                    <button type="submit" id="passkeyLogin">login</button>
+                </form>
+                {{end}}
             </div>
-            {{end}}
         </div>
-    </div>
-</div>
+        <div>
+            <hgroup>
+                <h2>Passkeys</h2>
+            </hgroup>
+            <p>Passkeys are a modern alternative to usernames and passwords, they are secure</p>
+        </div>
+    </article>
+</main>
+
 
 <dialog id="messages">
     <form>

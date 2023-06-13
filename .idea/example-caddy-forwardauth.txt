@@ -1,0 +1,22 @@
+GET /get?rd=prom HTTP/1.1
+Host: fzzbzz.ngrok.dev
+User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36
+Accept-Encoding: gzip, deflate, br
+Accept-Language: en-GB,en-US;q=0.9,en;q=0.8,nl;q=0.7
+Authorization: Basic ZXJ3aW46Ym9iYmxlIGNvcGllZDAgY2Fwc2l6ZQ==
+Cache-Control: no-cache
+Connection: Upgrade
+Origin: https://shell.fzzbzz.dev
+Pragma: no-cache
+Sec-Websocket-Extensions: permessage-deflate; client_max_window_bits
+Sec-Websocket-Key: WR8aqINu5YOn5JJoJLqp2Q==
+Sec-Websocket-Protocol: tty
+Sec-Websocket-Version: 13
+Upgrade: websocket
+X-Forwarded-For: 192.168.2.254
+X-Forwarded-For: 77.175.122.30
+X-Forwarded-Host: shell.fzzbzz.dev
+X-Forwarded-Method: GET
+X-Forwarded-Proto: https
+X-Forwarded-Proto: https
+X-Forwarded-Uri: /ws
