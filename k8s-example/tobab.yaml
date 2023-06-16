@@ -1,0 +1,54 @@
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: tobab
+  namespace: tobab
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate #so we have no race conditions with disk access
+  selector:
+    matchLabels:
+      app: tobab
+  template:
+    metadata:
+      labels:
+        app: tobab
+    spec:
+      containers:
+        - name: tobab
+          image: ghcr.io/gnur/tobab:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+              protocol: TCP
+          resources:
+            limits:
+              memory: 128Mi
+              cpu: 500m
+          volumeMounts:
+            - mountPath: /etc/tobab/
+              name: tobab-toml
+            - mountPath: /data
+              name: data
+      volumes:
+        - name: tobab-toml
+          configMap:
+            name: tobab-toml
+        - name: data
+          hostPath: #if deploying this in a HA way, this should be tied to a PVC
+            path: /mnt/k3s/tobab
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tobab
+spec:
+  ports:
+    - port: 80
+      targetPort: 8080
+      protocol: TCP
+  type: ClusterIP
+  selector:
+    app: tobab

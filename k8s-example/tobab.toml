@@ -1,0 +1,5 @@
+hostname = "login.example.com"
+displayname = "example login"
+cookiescope = "example.com"
+loglevel = "debug"
+databasepath = "/data/tobab.db"

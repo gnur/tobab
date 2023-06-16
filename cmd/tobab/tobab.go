@@ -603,7 +603,7 @@ func (app *Tobab) verifyForwardAuth(c *gin.Context) {
 	app.addHost(host)
 
 	if sess.State != "authenticated" {
-		c.Redirect(http.StatusTemporaryRedirect, "/")
+		c.Redirect(http.StatusTemporaryRedirect, app.fqdn)
 		return
 	}
 
@@ -615,7 +615,7 @@ func (app *Tobab) verifyForwardAuth(c *gin.Context) {
 	}
 
 	if user == nil {
-		c.Redirect(http.StatusTemporaryRedirect, "/")
+		c.Redirect(http.StatusTemporaryRedirect, app.fqdn)
 		return
 	}
 
@@ -638,6 +638,6 @@ func (app *Tobab) verifyForwardAuth(c *gin.Context) {
 		return
 	}
 
-	ll.Warning("Return 308 to unknown user")
-	c.Redirect(308, app.fqdn)
+	ll.Warning("Return 307 to unknown user")
+	c.Redirect(http.StatusTemporaryRedirect, app.fqdn)
 }

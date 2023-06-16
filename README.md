@@ -9,7 +9,7 @@ It uses passkeys for simple and robust authentication.
 
 - Passkey enabled user management
 - Admin with Web UI for access management
-- Easy to use (single binary with single config file)
+- Easy to use (single docker container with simple config)
 
 ## non-goals
 
@@ -17,28 +17,40 @@ It uses passkeys for simple and robust authentication.
 
 ## wishlist (not implemented yet)
 
-- docker builds
-- admin UI that shows all seen users, manages hosts and user access
 - metrics
 
 ## getting started
 
-- TODO
+- See the `k8s-example` dir for a kustomize setup for tobab and deploy to k8s
+- make sure dns is setup correctly
+- Setup caddy to use this new endpoint for forward auth:
+```
+login.example.com {
+  reverse_proxy tobab.tabab.svc
+
+}
+secure.example.com {
+        forward_auth tobab.tobab.svc {
+                uri /verify
+        }
+        reverse_proxy some_other_host:8080
+}
+```
+- create a new user at `login.example.com/register` (first user created becomes the admin user)
+- visit `secure.example.com` and be authenticated through your passkey
+- login with the new user
+
+
+
 
 # example config file
 
-- TODO: FIXME
-
 ```toml
 hostname = "login.example.com" #hostname where the login occurs
-cookiescope = "example.com"
-secret = "some-secret"
-salt = ""
-certdir = "path to dir with write access"
-email = "user@example.com"
+displayname = "example displayname" #used for passkey creation
+cookiescope = "example.com" #this will allow all subdomains of example.com to have sso with tobab
 loglevel = "debug" #or info, warning, error
 databasepath = "./tobab.db"
-adminglobs = [ "*@example.com" ] #globs of email addresses that are allowed to use the admin API
 ```
 
 
