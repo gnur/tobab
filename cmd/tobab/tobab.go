@@ -220,83 +220,6 @@ func (app *Tobab) setTobabRoutes(r *gin.Engine) {
 		c.AbortWithStatusJSON(http.StatusOK, options)
 
 	})
-	pk.POST("/login/anyfinish", func(c *gin.Context) {
-
-		var loginStart RegistrationStart
-
-		err := c.BindJSON(&loginStart)
-		if err != nil {
-			pklog.WithError(err).Warning("failed to parse body")
-			c.AbortWithStatus(http.StatusBadRequest)
-			return
-		}
-
-		sess := app.getSession(c.GetString("SESSION_ID"))
-		pklog.WithField("session_id", sess.ID).Debug("using session")
-
-		defer func() {
-			sess.Data = &webauthn.SessionData{}
-			app.db.SetSession(*sess)
-		}()
-
-		if sess.FSM.Current() != "login" {
-			pklog.WithField("state", sess.FSM.Current()).Warning("invalid source state for this request")
-			c.AbortWithStatus(http.StatusBadRequest)
-			return
-		}
-
-		resp, err := protocol.ParseCredentialRequestResponseBody(c.Request.Body)
-		if err != nil {
-			pklog.WithError(err).Error("failed to parse credential body")
-			c.AbortWithStatus(http.StatusInternalServerError)
-			return
-		}
-
-		webSess := sess.Data
-
-		user, err := app.db.GetUserByName(loginStart.Name)
-		if err != nil {
-			pklog.WithError(err).Error("failed to retrieve user from session")
-			c.AbortWithStatus(http.StatusInternalServerError)
-			return
-		}
-
-		credential, err := app.webauthn.ValidateLogin(user, *webSess, resp)
-		if err != nil {
-			pklog.WithError(err).Error("failed to validate login")
-			c.AbortWithStatus(403)
-			return
-		}
-
-		err = sess.FSM.Event(c, "loginSuccess")
-		if err != nil {
-			pklog.WithError(err).Error("failed to transition state")
-			c.AbortWithStatus(http.StatusInternalServerError)
-			return
-		}
-
-		sess.UserID = user.WebAuthnID()
-
-		err = app.db.SetSession(*sess)
-		if err != nil {
-			pklog.WithError(err).Error("failed to save session")
-			c.AbortWithStatus(http.StatusInternalServerError)
-			return
-		}
-
-		pklog.WithField("cred", credential.ID).Debug("success logging in!")
-
-		if url, ok := sess.Vals["redirect_url"]; ok {
-			delete(sess.Vals, "redirect_url")
-			app.db.SetSession(*sess)
-			pklog.Info("redirecting to url")
-			c.Redirect(http.StatusFound, url)
-			return
-		}
-
-		c.AbortWithStatus(http.StatusOK)
-
-	})
 
 	pk.POST("/login/start", func(c *gin.Context) {
 		sess := app.getSession(c.GetString("SESSION_ID"))
@@ -411,6 +334,14 @@ func (app *Tobab) setTobabRoutes(r *gin.Engine) {
 		}
 
 		pklog.WithField("cred", credential.ID).Debug("success logging in!")
+
+		if url, ok := sess.Vals["redirect_url"]; ok {
+			delete(sess.Vals, "redirect_url")
+			app.db.SetSession(*sess)
+			pklog.Info("redirecting to url")
+			c.Redirect(http.StatusFound, url)
+			return
+		}
 
 		c.AbortWithStatus(http.StatusOK)
 
