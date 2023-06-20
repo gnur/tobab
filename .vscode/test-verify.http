@@ -13,4 +13,4 @@ GET http://localhost:8080/verify
 X-Forwarded-Host: shell2.fzzbzz.dev
 X-Forwarded-Method: GET
 X-Forwarded-Proto: https
-X-Forwarded-Uri: /ws
+X-Forwarded-Uri: /ws?231?12%&a

@@ -18,6 +18,9 @@ It uses passkeys for simple and robust authentication.
 ## wishlist (not implemented yet)
 
 - metrics
+- API key support for non-browser session based validation
+- auto redirect after logging in
+- access denied message
 
 ## getting started
 
@@ -61,7 +64,3 @@ This project could hot have been what it is today without these great libraries:
  - github.com/gin-gonic/gin excellent request router
  - github.com/sirupsen/logrus logging library that is perfect
  - github.com/asdine/storm embedded database built upon bolt which makes persistence very easy
-
- # alternatives
-
- - Combine github.com/traefik/traefik with a forward auth provider like github.com/gnur/beyondauth or github.com/thomseddon/traefik-forward-auth

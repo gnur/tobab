@@ -3,6 +3,7 @@ package main
 import (
 	"io/fs"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/asdine/storm"
@@ -284,6 +285,14 @@ func (app *Tobab) setTobabRoutes(r *gin.Engine) {
 		}
 
 		pklog.WithField("cred", credential.ID).Debug("success logging in!")
+
+		if url, ok := sess.Vals["redirect_url"]; ok {
+			delete(sess.Vals, "redirect_url")
+			app.db.SetSession(*sess)
+			pklog.Info("redirecting to url")
+			c.Redirect(http.StatusFound, url)
+			return
+		}
 
 		c.AbortWithStatus(http.StatusOK)
 
@@ -600,9 +609,30 @@ func (app *Tobab) verifyForwardAuth(c *gin.Context) {
 	uri := c.GetHeader("X-Forwarded-Uri")
 	u := "unknown"
 
+	ll = ll.WithFields(logrus.Fields{
+		"host":  host,
+		"proto": proto,
+		"uri":   uri,
+		"user":  u,
+	})
+
 	app.addHost(host)
 
 	if sess.State != "authenticated" {
+		redirect_url, err := url.ParseRequestURI(uri)
+		if err != nil {
+			redirect_url = &url.URL{}
+		}
+		redirect_url.Host = host
+		redirect_url.Scheme = proto
+
+		sess.Vals["redirect_url"] = redirect_url.String()
+		err = app.db.SetSession(*sess)
+		if err != nil {
+			ll.WithError(err).Error("failed to save session")
+		}
+		ll.WithField("redirect_url", redirect_url.String()).Info("redirecting to login")
+
 		c.Redirect(http.StatusTemporaryRedirect, app.fqdn)
 		return
 	}
@@ -619,11 +649,8 @@ func (app *Tobab) verifyForwardAuth(c *gin.Context) {
 		return
 	}
 
-	ll = app.logger.WithFields(logrus.Fields{
-		"host":  host,
-		"proto": proto,
-		"uri":   uri,
-		"user":  u,
+	ll = ll.WithFields(logrus.Fields{
+		"user": user.Name,
 	})
 
 	if user.Admin {

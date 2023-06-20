@@ -69,6 +69,9 @@ func (app *Tobab) getSession(id string) *tobab.Session {
 	s.LastSeen = time.Now()
 	s.Expires = time.Now().Add(app.defaultAge)
 	s.FSM = setupFSM(s.State)
+	if s.Vals == nil {
+		s.Vals = make(map[string]string)
+	}
 
 	err := app.db.SetSession(*s)
 	if err != nil {
