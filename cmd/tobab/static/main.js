@@ -14,28 +14,22 @@ function onload() {
       let div = document.querySelector("#passkey");
       if (div) {
         div.style.display = "block";
-        try {
-          console.log("setting up eventlister for registration");
-          document.getElementById("create-account").addEventListener("submit", (a, event) => {
-            a.preventDefault();
-            let but = document.getElementById("createbutton")
-            but.classList.replace("bg-blue-700", "bg-gray-200");
-            but.classList.replace("dark:bg-blue-600", "dark:bg-gray-200");
+        let registerBtn = document.getElementById("create-account");
+        if (registerBtn) {
+          registerBtn.addEventListener("submit", (a, event) => {
+            console.log("setting up eventlister for registration");
+            document.getElementById("create-account").addEventListener("submit", (a, event) => {
+              a.preventDefault();
+              let but = document.getElementById("createbutton")
+              but.classList.replace("bg-blue-700", "bg-gray-200");
+              but.classList.replace("dark:bg-blue-600", "dark:bg-gray-200");
 
-            startRegister();
-          }, false);
-        } catch (e) {
-          console.log("Caught some error", e)
+              startRegister();
+            }, false);
+          })
         }
         let loginBtn = document.querySelector("#passkeyLogin")
         if (loginBtn) {
-          loginBtn.addEventListener("click", e => {
-            e.preventDefault();
-            if (abortController) {
-              abortController.abort();
-            }
-            startLogin()
-          }, false);
           startDiscoverableLogin();
         }
       }
@@ -181,85 +175,20 @@ let startDiscoverableLogin = async () => {
       },
     }),
   })
+    .then(res => res.json())
     .then(success => {
-      console.log("disc-in: finished login");
-      document.location = document.location;
-      return
+      let redirect_url = document.location;
+      if (success.hasOwnProperty('redirect_url')) {
+        redirect_url = success.redirect_url;
+      }
+      showError("Login success<br>Taking you where you need to go..");
+      setTimeout(() => {
+        document.location = redirect_url;
+      }, 2000);
     })
     .catch((error) => {
       showError("failed to login " + username + "<br>" + error)
     })
 }
-
-function startLogin(event) {
-  try {
-    event.preventDefault();
-  } catch { };
-
-  let username = document.querySelector("#username").value;
-  if (username == "") {
-    showError("Invalid username");
-    return
-  }
-
-  fetch("/passkey/login/start",
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ "Name": username }),
-    }).then(res => {
-      return res.json()
-    }).then(credentialRequestOptions => {
-      credentialRequestOptions.publicKey.challenge = base64url.decode(credentialRequestOptions.publicKey.challenge);
-      credentialRequestOptions.publicKey.allowCredentials.forEach(function (listItem) {
-        listItem.id = base64url.decode(listItem.id)
-      });
-
-      return navigator.credentials.get({
-        publicKey: credentialRequestOptions.publicKey
-      })
-    }).then((assertion) => {
-      console.log(assertion)
-      let authData = assertion.response.authenticatorData;
-      let clientDataJSON = assertion.response.clientDataJSON;
-      let rawId = assertion.rawId;
-      let sig = assertion.response.signature;
-      let userHandle = assertion.response.userHandle;
-
-
-      fetch("/passkey/login/finish",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-
-          body: JSON.stringify({
-            id: assertion.id,
-            rawId: base64url.encode(rawId),
-            type: assertion.type,
-            response: {
-              authenticatorData: base64url.encode(authData),
-              clientDataJSON: base64url.encode(clientDataJSON),
-              signature: base64url.encode(sig),
-              userHandle: base64url.encode(userHandle),
-            },
-          }),
-        })
-        .then(success => {
-          document.location = document.location;
-          return
-        })
-        .catch((error) => {
-          showError("failed to login " + username + "<br>" + error)
-        })
-    })
-    .catch((error) => {
-      showError("failed to register " + username + "<br>" + error)
-    })
-}
-
 
 window.onload = onload();

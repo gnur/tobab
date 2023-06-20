@@ -221,66 +221,6 @@ func (app *Tobab) setTobabRoutes(r *gin.Engine) {
 
 	})
 
-	pk.POST("/login/start", func(c *gin.Context) {
-		sess := app.getSession(c.GetString("SESSION_ID"))
-		pklog.WithField("session_id", sess.ID).Debug("using session")
-
-		if sess.State == "login" {
-			sess.FSM.Event(c, "loginFail")
-			sess.State = sess.FSM.Current()
-		}
-
-		if sess.State != "null" {
-			pklog.WithField("state", sess.FSM.Current()).Warning("invalid source state for this request")
-			c.AbortWithStatus(http.StatusBadRequest)
-			return
-		}
-
-		var loginStart RegistrationStart
-
-		err := c.BindJSON(&loginStart)
-		if err != nil {
-			pklog.WithError(err).Warning("failed to parse body")
-			c.AbortWithStatus(http.StatusBadRequest)
-			return
-		}
-
-		u, err := app.db.GetUserByName(loginStart.Name)
-		if err != nil {
-			pklog.WithField("username", u.Name).Warning("unknown username provided")
-			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-				"msg": "unknown user",
-			})
-			return
-		}
-
-		options, session, err := app.webauthn.BeginLogin(u)
-		if err != nil {
-			pklog.WithError(err).Error("failed to start webauthn login")
-			c.AbortWithStatus(http.StatusInternalServerError)
-			return
-		}
-
-		sess.Data = session
-		sess.UserID = u.ID
-
-		err = sess.FSM.Event(c, "startLogin")
-		if err != nil {
-			pklog.WithError(err).Error("failed to transition state")
-			c.AbortWithStatus(http.StatusInternalServerError)
-			return
-		}
-
-		err = app.db.SetSession(*sess)
-		if err != nil {
-			pklog.WithError(err).Error("failed to save session")
-			c.AbortWithStatus(http.StatusInternalServerError)
-			return
-		}
-
-		c.AbortWithStatusJSON(http.StatusOK, options)
-
-	})
 	pk.POST("/login/finish", func(c *gin.Context) {
 
 		sess := app.getSession(c.GetString("SESSION_ID"))
@@ -335,15 +275,18 @@ func (app *Tobab) setTobabRoutes(r *gin.Engine) {
 
 		pklog.WithField("cred", credential.ID).Debug("success logging in!")
 
+		res := gin.H{}
+
 		if url, ok := sess.Vals["redirect_url"]; ok {
 			delete(sess.Vals, "redirect_url")
 			app.db.SetSession(*sess)
 			pklog.Info("redirecting to url")
-			c.Redirect(http.StatusFound, url)
-			return
+			res = gin.H{
+				"redirect_url": url,
+			}
 		}
 
-		c.AbortWithStatus(http.StatusOK)
+		c.AbortWithStatusJSON(http.StatusOK, res)
 
 	})
 
