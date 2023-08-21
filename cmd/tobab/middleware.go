@@ -29,6 +29,7 @@ func (app *Tobab) adminMiddleware() gin.HandlerFunc {
 
 		if sess.State != "authenticated" {
 			c.Redirect(http.StatusTemporaryRedirect, "/")
+			c.Abort()
 			return
 		}
 
@@ -36,11 +37,13 @@ func (app *Tobab) adminMiddleware() gin.HandlerFunc {
 		if err != nil {
 			app.logger.WithError(err).Error("failed to retrieve user from session")
 			c.Redirect(http.StatusTemporaryRedirect, "/")
+			c.Abort()
 			return
 		}
 
 		if !user.Admin {
 			c.Redirect(http.StatusTemporaryRedirect, "/")
+			c.Abort()
 			return
 		}
 

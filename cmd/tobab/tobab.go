@@ -401,6 +401,28 @@ func (app *Tobab) setTobabRoutes(r *gin.Engine) {
 		c.JSON(200, gin.H{})
 	})
 
+	admin.POST("/toggleAdmin", func(c *gin.Context) {
+		userName := c.Query("user")
+
+		u, err := app.db.GetUserByName(userName)
+		if err != nil {
+			app.logger.WithError(err).Warning("invalid username provided")
+			c.AbortWithStatus(http.StatusBadRequest)
+			return
+		}
+
+		u.Admin = !u.Admin
+
+		err = app.db.SetUser(*u)
+		if err != nil {
+			app.logger.WithError(err).Warning("Failed to update user")
+			c.AbortWithStatus(http.StatusInternalServerError)
+			return
+		}
+
+		c.JSON(200, gin.H{})
+	})
+
 	admin.GET("/index.html", func(c *gin.Context) {
 
 		users, err := app.db.GetUsers()
@@ -410,11 +432,20 @@ func (app *Tobab) setTobabRoutes(r *gin.Engine) {
 			return
 		}
 
+		sess := app.getSession(c.GetString("SESSION_ID"))
 		hosts := app.getHosts()
+
+		user, err := app.db.GetUser(sess.UserID)
+		if err != nil {
+			pklog.WithError(err).Error("failed to retrieve user from session")
+			c.AbortWithStatus(http.StatusInternalServerError)
+			return
+		}
 
 		c.HTML(200, "admin.html", adminVars{
 			Users: users,
 			Hosts: hosts,
+			User:  *user,
 		})
 	})
 

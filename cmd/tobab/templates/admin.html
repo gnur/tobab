@@ -12,6 +12,8 @@
                 <thead>
                     <tr>
                         <th scope="col">User</th>
+                        <th scope="col">Admin</th>
+
                         {{range .Hosts}}
                         <th scope="col">{{.}}</th>
                         {{end}}
@@ -32,6 +34,11 @@
                                     <li>Lastseen: {{.LastSeen | relativeTime}}</li>
                                 </ul>
                             </details>
+                        </td>
+                        <td>
+                            <input hx-post="/admin/toggleAdmin?user={{$user.Name}}" hx-trigger="click"
+                                type="checkbox" id="switch" name="switch" role="switch" {{if $user.Admin
+                                }}checked{{end}} {{if eq $user.Name $.User.Name}}disabled{{end}}>
                         </td>
                         {{range $.Hosts}}
                         <td>
