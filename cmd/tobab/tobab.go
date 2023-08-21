@@ -507,6 +507,7 @@ func (app *Tobab) verifyForwardAuth(c *gin.Context) {
 		}
 		ll.WithField("redirect_url", redirect_url.String()).Info("redirecting to login")
 
+		c.Header("HX-Redirect", app.fqdn)
 		c.Redirect(http.StatusTemporaryRedirect, app.fqdn)
 		return
 	}
@@ -519,6 +520,7 @@ func (app *Tobab) verifyForwardAuth(c *gin.Context) {
 	}
 
 	if user == nil {
+		c.Header("HX-Redirect", app.fqdn)
 		c.Redirect(http.StatusTemporaryRedirect, app.fqdn)
 		return
 	}
@@ -540,5 +542,6 @@ func (app *Tobab) verifyForwardAuth(c *gin.Context) {
 	}
 
 	ll.Warning("Return 307 to unknown user")
+	c.Header("HX-Redirect", app.fqdn)
 	c.Redirect(http.StatusTemporaryRedirect, app.fqdn)
 }

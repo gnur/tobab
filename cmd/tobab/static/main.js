@@ -14,19 +14,14 @@ function onload() {
       let div = document.querySelector("#passkey");
       if (div) {
         div.style.display = "block";
-        let registerBtn = document.getElementById("create-account");
+        let registerBtn = document.getElementById("createbutton");
         if (registerBtn) {
-          registerBtn.addEventListener("submit", (a, event) => {
-            console.log("setting up eventlister for registration");
-            document.getElementById("create-account").addEventListener("submit", (a, event) => {
-              a.preventDefault();
-              let but = document.getElementById("createbutton")
-              but.classList.replace("bg-blue-700", "bg-gray-200");
-              but.classList.replace("dark:bg-blue-600", "dark:bg-gray-200");
-
-              startRegister();
-            }, false);
-          })
+          console.log("setting up eventlister for registration");
+          registerBtn.addEventListener("click", (a, event) => {
+            a.preventDefault();
+            registerBtn.disabled = true;
+            startRegister();
+          }, false);
         }
         let loginBtn = document.querySelector("#passkeyLogin")
         if (loginBtn) {

@@ -19,8 +19,12 @@ It uses passkeys for simple and robust authentication.
 
 - metrics
 - API key support for non-browser session based validation
-- auto redirect after logging in
 - access denied message
+- better error handling with feedback to user
+- better splitting of templates and javascript (not a single script for login and register)
+- testing with Traefik
+- testing with nginx
+- additional storage interface implementations to allow it to be more cloud native
 
 ## getting started
 
