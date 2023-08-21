@@ -16,6 +16,11 @@ func (app *Tobab) getSessionMiddleware() gin.HandlerFunc {
 		sessID, _ := c.Cookie(COOKIE_NAME)
 		session := app.getSession(sessID)
 
+		user, err := app.db.GetUser(session.UserID)
+		if err == nil && user != nil {
+			c.Header("X-Tobab-User", user.Name)
+		}
+
 		c.SetCookie(COOKIE_NAME, session.ID, int(app.defaultAge.Seconds()), "/", app.config.CookieScope, true, true)
 		c.Set("SESSION_ID", session.ID)
 	}
