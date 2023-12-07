@@ -13,7 +13,6 @@ import (
 	_ "github.com/go-webauthn/webauthn/protocol"
 	"github.com/go-webauthn/webauthn/webauthn"
 	"github.com/lithammer/shortuuid"
-	"github.com/sirupsen/logrus"
 )
 
 const ADMIN_REGISTERED_KEY = "admin_registered"
@@ -25,20 +24,20 @@ type RegistrationStart struct {
 func (app *Tobab) setTobabRoutes(r *gin.Engine) {
 
 	pk := r.Group("/passkey/")
-	pklog := app.logger.WithField("method", "passkey")
+	pklog := app.logger.With("method", "passkey")
 
 	pk.POST("/register/start", func(c *gin.Context) {
 		var regStart RegistrationStart
 
 		err := c.BindJSON(&regStart)
 		if err != nil {
-			pklog.WithError(err).Warning("failed to parse body")
+			pklog.Warn("failed to parse body", "error", err)
 			c.AbortWithStatus(http.StatusBadRequest)
 			return
 		}
 
 		sess := app.getSession(c.GetString("SESSION_ID"))
-		pklog.WithField("session_id", sess.ID).Debug("using session")
+		pklog.Debug("using session", "session_id", sess.ID)
 
 		if sess.State == "registration" {
 			sess.FSM.Event(c, "finishRegistration")
@@ -46,14 +45,14 @@ func (app *Tobab) setTobabRoutes(r *gin.Engine) {
 		}
 
 		if sess.FSM.Current() != "null" {
-			pklog.WithField("state", sess.FSM.Current()).Warning("invalid source state for this request")
+			pklog.Warn("invalid source state for this request", "state", sess.FSM.Current())
 			c.AbortWithStatus(http.StatusBadRequest)
 			return
 		}
 
 		u, err := app.db.GetUserByName(regStart.Name)
 		if err == nil {
-			pklog.WithField("username", u.Name).Warning("user that already exists in db is trying to register")
+			pklog.Warn("user that already exists in db is trying to register", "username", u.Name)
 			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
 				"msg": "user already exists",
 			})
@@ -70,18 +69,18 @@ func (app *Tobab) setTobabRoutes(r *gin.Engine) {
 
 		err = app.db.SetUser(*u)
 		if err != nil {
-			pklog.WithError(err).Error("failed to save new user in registration start")
+			pklog.Error("failed to save new user in registration start", "error", err)
 			c.AbortWithStatus(http.StatusInternalServerError)
 			return
 		}
 
 		options, session, err := app.webauthn.BeginRegistration(u, webauthn.WithResidentKeyRequirement(protocol.ResidentKeyRequirementRequired))
-		pklog.WithFields(logrus.Fields{
-			"options": options,
-			"session": session,
-		}).Debug("Started webauthn registration")
+		pklog.With(
+			"options", options,
+			"session", session,
+		).Debug("Started webauthn registration")
 		if err != nil {
-			pklog.WithError(err).Error("failed to start webauthn registration")
+			pklog.Error("failed to start webauthn registration", "error", err)
 			c.AbortWithStatus(http.StatusInternalServerError)
 			return
 		}
@@ -91,14 +90,14 @@ func (app *Tobab) setTobabRoutes(r *gin.Engine) {
 
 		err = sess.FSM.Event(c, "startRegistration")
 		if err != nil {
-			pklog.WithError(err).Error("failed to transition state")
+			pklog.Error("failed to transition state", "error", err)
 			c.AbortWithStatus(http.StatusInternalServerError)
 			return
 		}
 
 		err = app.db.SetSession(*sess)
 		if err != nil {
-			pklog.WithError(err).Error("failed to save session")
+			pklog.Error("failed to save session", "error", err)
 			c.AbortWithStatus(http.StatusInternalServerError)
 			return
 		}
@@ -109,7 +108,7 @@ func (app *Tobab) setTobabRoutes(r *gin.Engine) {
 	pk.POST("/register/finish", func(c *gin.Context) {
 
 		sess := app.getSession(c.GetString("SESSION_ID"))
-		pklog.WithField("session_id", sess.ID).Debug("using session")
+		pklog.Debug("using session", "session_id", sess.ID)
 
 		defer func() {
 			sess.Data = &webauthn.SessionData{}
@@ -117,14 +116,14 @@ func (app *Tobab) setTobabRoutes(r *gin.Engine) {
 		}()
 
 		if sess.FSM.Current() != "registration" {
-			pklog.WithField("state", sess.FSM.Current()).Warning("invalid source state for this request")
+			pklog.Warn("invalid source state for this request", "state", sess.FSM.Current())
 			c.AbortWithStatus(http.StatusBadRequest)
 			return
 		}
 
 		resp, err := protocol.ParseCredentialCreationResponseBody(c.Request.Body)
 		if err != nil {
-			pklog.WithError(err).Error("failed to parse credential body")
+			pklog.Error("failed to parse credential body", "error", err)
 			c.AbortWithStatus(http.StatusInternalServerError)
 			return
 		}
@@ -133,14 +132,14 @@ func (app *Tobab) setTobabRoutes(r *gin.Engine) {
 
 		user, err := app.db.GetUser(sess.UserID)
 		if err != nil {
-			pklog.WithError(err).Error("failed to retrieve user from session")
+			pklog.Error("failed to retrieve user from session", "error", err)
 			c.AbortWithStatus(http.StatusInternalServerError)
 			return
 		}
 
 		credential, err := app.webauthn.CreateCredential(user, *webSess, resp)
 		if err != nil {
-			pklog.WithError(err).Error("failed to create credential")
+			pklog.Error("failed to create credential", "error", err)
 			c.AbortWithStatus(http.StatusInternalServerError)
 			return
 		}
@@ -155,21 +154,21 @@ func (app *Tobab) setTobabRoutes(r *gin.Engine) {
 		user.RegistrationFinished = true
 		err = app.db.SetUser(*user)
 		if err != nil {
-			pklog.WithError(err).Error("failed to store credential with user")
+			pklog.Error("failed to store credential with user", "error", err)
 			c.AbortWithStatus(http.StatusInternalServerError)
 			return
 		}
 
 		err = sess.FSM.Event(c, "finishRegistration")
 		if err != nil {
-			pklog.WithError(err).Error("failed to transition state")
+			pklog.Error("failed to transition state", "error", err)
 			c.AbortWithStatus(http.StatusInternalServerError)
 			return
 		}
 
 		err = app.db.SetSession(*sess)
 		if err != nil {
-			pklog.WithError(err).Error("failed to save session")
+			pklog.Error("failed to save session", "error", err)
 			c.AbortWithStatus(http.StatusInternalServerError)
 			return
 		}
@@ -180,7 +179,7 @@ func (app *Tobab) setTobabRoutes(r *gin.Engine) {
 	pk.POST("/login/anystart", func(c *gin.Context) {
 
 		sess := app.getSession(c.GetString("SESSION_ID"))
-		pklog.WithField("session_id", sess.ID).Debug("using session")
+		pklog.Debug("using session", "session_id", sess.ID)
 
 		if sess.State == "login" {
 			sess.FSM.Event(c, "loginFail")
@@ -188,7 +187,7 @@ func (app *Tobab) setTobabRoutes(r *gin.Engine) {
 		}
 
 		if sess.State != "null" {
-			pklog.WithField("state", sess.FSM.Current()).Warning("invalid source state for this request")
+			pklog.Warn("invalid source state for this request", "state", sess.FSM.Current())
 			c.AbortWithStatus(http.StatusBadRequest)
 			return
 		}
@@ -196,7 +195,7 @@ func (app *Tobab) setTobabRoutes(r *gin.Engine) {
 		options, session, err := app.webauthn.BeginDiscoverableLogin()
 
 		if err != nil {
-			pklog.WithError(err).Error("failed to start webauthn login")
+			pklog.Error("failed to start webauthn login", "error", err)
 			c.AbortWithStatus(http.StatusInternalServerError)
 			return
 		}
@@ -205,14 +204,14 @@ func (app *Tobab) setTobabRoutes(r *gin.Engine) {
 
 		err = sess.FSM.Event(c, "startLogin")
 		if err != nil {
-			pklog.WithError(err).Error("failed to transition state")
+			pklog.Error("failed to transition state", "error", err)
 			c.AbortWithStatus(http.StatusInternalServerError)
 			return
 		}
 
 		err = app.db.SetSession(*sess)
 		if err != nil {
-			pklog.WithError(err).Error("failed to save session")
+			pklog.Error("failed to save session", "error", err)
 			c.AbortWithStatus(http.StatusInternalServerError)
 			return
 		}
@@ -224,17 +223,17 @@ func (app *Tobab) setTobabRoutes(r *gin.Engine) {
 	pk.POST("/login/finish", func(c *gin.Context) {
 
 		sess := app.getSession(c.GetString("SESSION_ID"))
-		pklog.WithField("session_id", sess.ID).Debug("using session")
+		pklog.Debug("using session", "session_id", sess.ID)
 
 		if sess.FSM.Current() != "login" {
-			pklog.WithField("state", sess.FSM.Current()).Warning("invalid source state for this request")
+			pklog.Warn("invalid source state for this request", "state", sess.FSM.Current())
 			c.AbortWithStatus(http.StatusBadRequest)
 			return
 		}
 
 		resp, err := protocol.ParseCredentialRequestResponseBody(c.Request.Body)
 		if err != nil {
-			pklog.WithError(err).Error("failed to parse credential body")
+			pklog.Error("failed to parse credential body", "error", err)
 			c.AbortWithStatus(http.StatusInternalServerError)
 			return
 		}
@@ -243,7 +242,7 @@ func (app *Tobab) setTobabRoutes(r *gin.Engine) {
 
 		user, err := app.db.GetUser(resp.Response.UserHandle)
 		if err != nil {
-			pklog.WithError(err).Error("failed to retrieve user from session")
+			pklog.Error("failed to retrieve user from session", "error", err)
 			c.AbortWithStatus(http.StatusInternalServerError)
 			return
 		}
@@ -252,14 +251,14 @@ func (app *Tobab) setTobabRoutes(r *gin.Engine) {
 
 		credential, err := app.webauthn.ValidateLogin(user, *webSess, resp)
 		if err != nil {
-			pklog.WithError(err).Error("failed to validate login")
+			pklog.Error("failed to validate login", "error", err)
 			c.AbortWithStatus(403)
 			return
 		}
 
 		err = sess.FSM.Event(c, "loginSuccess")
 		if err != nil {
-			pklog.WithError(err).Error("failed to transition state")
+			pklog.Error("failed to transition state", "error", err)
 			c.AbortWithStatus(http.StatusInternalServerError)
 			return
 		}
@@ -268,12 +267,12 @@ func (app *Tobab) setTobabRoutes(r *gin.Engine) {
 
 		err = app.db.SetSession(*sess)
 		if err != nil {
-			pklog.WithError(err).Error("failed to save session")
+			pklog.Error("failed to save session", "error", err)
 			c.AbortWithStatus(http.StatusInternalServerError)
 			return
 		}
 
-		pklog.WithField("cred", credential.ID).Debug("success logging in!")
+		pklog.Debug("success logging in!", "cred", credential.ID)
 
 		res := gin.H{}
 
@@ -300,7 +299,7 @@ func (app *Tobab) setTobabRoutes(r *gin.Engine) {
 		if sess.State == "authenticated" {
 			user, err = app.db.GetUser(sess.UserID)
 			if err != nil {
-				pklog.WithError(err).Error("failed to retrieve user from session")
+				pklog.Error("failed to retrieve user from session", "error", err)
 				c.AbortWithStatus(http.StatusInternalServerError)
 				return
 			}
@@ -311,14 +310,14 @@ func (app *Tobab) setTobabRoutes(r *gin.Engine) {
 			if sess.State == "login" {
 				err = sess.FSM.Event(c, "loginFail")
 				if err != nil {
-					pklog.WithError(err).Error("failed to transition state")
+					pklog.Error("failed to transition state", "error", err)
 					c.AbortWithStatus(http.StatusInternalServerError)
 					return
 				}
 
 				err = app.db.SetSession(*sess)
 				if err != nil {
-					pklog.WithError(err).Error("failed to save session")
+					pklog.Error("failed to save session", "error", err)
 					c.AbortWithStatus(http.StatusInternalServerError)
 					return
 				}
@@ -367,14 +366,14 @@ func (app *Tobab) setTobabRoutes(r *gin.Engine) {
 
 		u, err := app.db.GetUserByName(userName)
 		if err != nil {
-			app.logger.WithError(err).Warning("invalid username provided")
+			app.logger.Warn("invalid username provided", "error", err)
 			c.AbortWithStatus(http.StatusBadRequest)
 			return
 		}
 
 		hosts := app.getHosts()
 		if !tobab.Contains(hosts, hostName) {
-			app.logger.Warning("invalid hostname provided")
+			app.logger.Warn("invalid hostname provided")
 			c.AbortWithStatus(http.StatusBadRequest)
 			return
 		}
@@ -393,7 +392,7 @@ func (app *Tobab) setTobabRoutes(r *gin.Engine) {
 		}
 		err = app.db.SetUser(*u)
 		if err != nil {
-			app.logger.WithError(err).Warning("Failed to update user")
+			app.logger.Warn("Failed to update user", "error", err)
 			c.AbortWithStatus(http.StatusInternalServerError)
 			return
 		}
@@ -406,7 +405,7 @@ func (app *Tobab) setTobabRoutes(r *gin.Engine) {
 
 		u, err := app.db.GetUserByName(userName)
 		if err != nil {
-			app.logger.WithError(err).Warning("invalid username provided")
+			app.logger.Warn("invalid username provided", "error", err)
 			c.AbortWithStatus(http.StatusBadRequest)
 			return
 		}
@@ -415,7 +414,7 @@ func (app *Tobab) setTobabRoutes(r *gin.Engine) {
 
 		err = app.db.SetUser(*u)
 		if err != nil {
-			app.logger.WithError(err).Warning("Failed to update user")
+			app.logger.Warn("Failed to update user", "error", err)
 			c.AbortWithStatus(http.StatusInternalServerError)
 			return
 		}
@@ -427,7 +426,7 @@ func (app *Tobab) setTobabRoutes(r *gin.Engine) {
 
 		users, err := app.db.GetUsers()
 		if err != nil {
-			app.logger.WithError(err).Error("failed to retrieve users from database")
+			app.logger.Error("failed to retrieve users from database", "error", err)
 			c.AbortWithStatus(http.StatusInternalServerError)
 			return
 		}
@@ -437,7 +436,7 @@ func (app *Tobab) setTobabRoutes(r *gin.Engine) {
 
 		user, err := app.db.GetUser(sess.UserID)
 		if err != nil {
-			pklog.WithError(err).Error("failed to retrieve user from session")
+			pklog.Error("failed to retrieve user from session", "error", err)
 			c.AbortWithStatus(http.StatusInternalServerError)
 			return
 		}
@@ -458,7 +457,7 @@ func (app *Tobab) setTobabRoutes(r *gin.Engine) {
 		if sess.State == "authenticated" {
 			user, err = app.db.GetUser(sess.UserID)
 			if err != nil {
-				pklog.WithError(err).Error("failed to retrieve user from session")
+				pklog.Error("failed to retrieve user from session", "error", err)
 				c.AbortWithStatus(http.StatusInternalServerError)
 				return
 			}
@@ -506,7 +505,7 @@ func (app *Tobab) verifyForwardAuth(c *gin.Context) {
 	var user *tobab.User
 	var err error
 
-	ll := app.logger.WithField("service", "verify")
+	ll := app.logger.With("service", "verify")
 	sess := app.getSession(c.GetString("SESSION_ID"))
 
 	host := c.GetHeader("X-Forwarded-Host")
@@ -514,12 +513,12 @@ func (app *Tobab) verifyForwardAuth(c *gin.Context) {
 	uri := c.GetHeader("X-Forwarded-Uri")
 	u := "unknown"
 
-	ll = ll.WithFields(logrus.Fields{
-		"host":  host,
-		"proto": proto,
-		"uri":   uri,
-		"user":  u,
-	})
+	ll = ll.With(
+		"host", host,
+		"proto", proto,
+		"uri", uri,
+		"user", u,
+	)
 
 	app.addHost(host)
 
@@ -534,9 +533,9 @@ func (app *Tobab) verifyForwardAuth(c *gin.Context) {
 		sess.Vals["redirect_url"] = redirect_url.String()
 		err = app.db.SetSession(*sess)
 		if err != nil {
-			ll.WithError(err).Error("failed to save session")
+			ll.Error("failed to save session", "error", err)
 		}
-		ll.WithField("redirect_url", redirect_url.String()).Info("redirecting to login")
+		ll.With("redirect_url", redirect_url.String()).Info("redirecting to login")
 
 		c.Header("HX-Redirect", app.fqdn)
 		c.Redirect(http.StatusTemporaryRedirect, app.fqdn)
@@ -545,7 +544,7 @@ func (app *Tobab) verifyForwardAuth(c *gin.Context) {
 
 	user, err = app.db.GetUser(sess.UserID)
 	if err != nil && err != storm.ErrNotFound {
-		ll.WithError(err).Error("failed to retrieve user from session")
+		ll.Error("failed to retrieve user from session", "error", err)
 		c.AbortWithStatus(http.StatusInternalServerError)
 		return
 	}
@@ -556,9 +555,9 @@ func (app *Tobab) verifyForwardAuth(c *gin.Context) {
 		return
 	}
 
-	ll = ll.WithFields(logrus.Fields{
-		"user": user.Name,
-	})
+	ll = ll.With(
+		"user", user.Name,
+	)
 
 	if user.Admin {
 		ll.Info("Return 200 to admin")
@@ -572,7 +571,7 @@ func (app *Tobab) verifyForwardAuth(c *gin.Context) {
 		return
 	}
 
-	ll.Warning("Return 307 to unknown user")
+	ll.Warn("Return 307 to unknown user")
 	c.Header("HX-Redirect", app.fqdn)
 	c.Redirect(http.StatusTemporaryRedirect, app.fqdn)
 }

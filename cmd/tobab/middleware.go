@@ -40,7 +40,7 @@ func (app *Tobab) adminMiddleware() gin.HandlerFunc {
 
 		user, err = app.db.GetUser(sess.UserID)
 		if err != nil {
-			app.logger.WithError(err).Error("failed to retrieve user from session")
+			app.logger.Error("failed to retrieve user from session", "error", err)
 			c.Redirect(http.StatusTemporaryRedirect, "/")
 			c.Abort()
 			return

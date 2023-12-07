@@ -2,6 +2,7 @@ package main
 
 import (
 	"html/template"
+	"log/slog"
 	"os"
 	"time"
 
@@ -10,7 +11,6 @@ import (
 	"github.com/gnur/tobab"
 	"github.com/gnur/tobab/storm"
 	"github.com/go-webauthn/webauthn/webauthn"
-	"github.com/sirupsen/logrus"
 )
 
 var version = "manual build"
@@ -18,7 +18,7 @@ var version = "manual build"
 type Tobab struct {
 	fqdn       string
 	config     tobab.Config
-	logger     *logrus.Entry
+	logger     *slog.Logger
 	maxAge     time.Duration
 	defaultAge time.Duration
 	templates  *template.Template
@@ -28,11 +28,8 @@ type Tobab struct {
 }
 
 func main() {
-	logger := logrus.New()
-	logger.SetFormatter(&logrus.TextFormatter{
-		ForceColors:   true,
-		FullTimestamp: true,
-	})
+
+	logger := slog.With("", "")
 
 	confLoc := os.Getenv("TOBAB_TOML")
 	if confLoc == "" {
@@ -41,11 +38,8 @@ func main() {
 
 	cfg, err := tobab.LoadConf(confLoc)
 	if err != nil {
-		logger.WithError(err).Fatal("Failed loading config")
-	}
-
-	if lvl, err := logrus.ParseLevel(cfg.Loglevel); err == nil {
-		logger.SetLevel(lvl)
+		logger.Error("Failed loading config", "error", err)
+		return
 	}
 
 	if version == "" {
@@ -54,7 +48,7 @@ func main() {
 
 	db, err := storm.New(cfg.DatabasePath)
 	if err != nil {
-		logger.WithError(err).WithField("location", cfg.DatabasePath).Fatal("Unable to initialize database")
+		logger.Error("unable to init database", "error", err, "location", cfg.DatabasePath)
 	}
 	defer db.Close()
 
@@ -71,12 +65,12 @@ func main() {
 
 	w, err := webauthn.New(wconfig)
 	if err != nil {
-		logger.WithError(err).Fatal("Unable to initialize webauthn")
+		logger.Error("Unable to initialize webauthn", "error", err)
 	}
 
 	app := Tobab{
 		config:   cfg,
-		logger:   logger.WithField("version", version),
+		logger:   logger.With("version", version),
 		maxAge:   720 * time.Hour,
 		fqdn:     fqdn,
 		confLoc:  confLoc,
@@ -87,7 +81,7 @@ func main() {
 	//check if admin is created already, otherwise set it to false
 	hasAdmin, err := app.db.KVGetBool(ADMIN_REGISTERED_KEY)
 	if err != nil || !hasAdmin {
-		logger.Warning("Setting flag so first user to register will be admin")
+		logger.Warn("Setting flag so first user to register will be admin")
 		app.db.KVSet(ADMIN_REGISTERED_KEY, false)
 	}
 
@@ -105,7 +99,8 @@ func main() {
 
 	app.templates, err = loadTemplates()
 	if err != nil {
-		logger.WithError(err).Fatal("unable to load templates")
+		logger.Error("unable to load templates", "error", err)
+		return
 	}
 
 	go app.cleanSessionsLoop()
@@ -140,7 +135,7 @@ func (app *Tobab) startServer() {
 
 	err := r.Run()
 	if err != nil {
-		app.logger.WithError(err).Error("Failed to start web server")
+		app.logger.Error("Failed to start web server")
 	}
 }
 
@@ -148,7 +143,7 @@ func (app *Tobab) getHosts() []string {
 	var hosts []string
 	err := app.db.KVGet("hosts", &hosts)
 	if err != nil {
-		app.logger.WithError(err).Error("Failed to get hosts")
+		app.logger.Error("Failed to get hosts", "error", err)
 	}
 	return hosts
 }
@@ -158,7 +153,7 @@ func (app *Tobab) addHost(h string) {
 
 	err := app.db.KVGet("hosts", &hosts)
 	if err != nil {
-		app.logger.WithError(err).Error("Failed to get hosts")
+		app.logger.Error("Failed to get hosts", "error", err)
 	}
 
 	if tobab.Contains(hosts, h) {
@@ -168,7 +163,7 @@ func (app *Tobab) addHost(h string) {
 	hosts = append(hosts, h)
 	err = app.db.KVSet("hosts", hosts)
 	if err != nil {
-		app.logger.WithError(err).Error("Failed to set hosts")
+		app.logger.Error("Failed to set hosts", "error", err)
 	}
 }
 

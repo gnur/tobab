@@ -6,7 +6,6 @@ import (
 	"github.com/gnur/tobab"
 	"github.com/lithammer/shortuuid"
 	"github.com/looplab/fsm"
-	"github.com/sirupsen/logrus"
 )
 
 func setupFSM(base string) *fsm.FSM {
@@ -47,10 +46,10 @@ func (app *Tobab) getSession(id string) *tobab.Session {
 	} else {
 		dbSess, err := app.db.GetSession(id)
 		if err != nil {
-			app.logger.WithError(err).Debug("Creating new session because of error getting sesssion")
+			app.logger.Debug("Creating new session because of error getting sesssion", "error", err)
 			newSession = true
 		} else if dbSess.Expires.Before(time.Now()) {
-			app.logger.WithField("expires", dbSess.Expires).Debug("Creating new session because of expired session")
+			app.logger.Debug("Creating new session because of expired session", "expires", dbSess.Expires)
 			newSession = true
 		} else {
 			app.logger.Debug("Using existing session")
@@ -59,7 +58,7 @@ func (app *Tobab) getSession(id string) *tobab.Session {
 	}
 
 	if newSession {
-		app.logger.WithField("id", id).Debug("Creating new session")
+		app.logger.Debug("Creating new session", "id", id)
 		s = &tobab.Session{
 			ID:      shortuuid.New(),
 			Created: time.Now(),
@@ -75,7 +74,8 @@ func (app *Tobab) getSession(id string) *tobab.Session {
 
 	err := app.db.SetSession(*s)
 	if err != nil {
-		logrus.WithError(err).Fatal("could not save session, this breaks everything, crashing hard")
+		app.logger.Error("could not save session, this breaks everything, crashing hard", "error", err)
+		return nil
 	}
 
 	return s

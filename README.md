@@ -66,5 +66,4 @@ databasepath = "./tobab.db"
 This project could hot have been what it is today without these great libraries:
 
  - github.com/gin-gonic/gin excellent request router
- - github.com/sirupsen/logrus logging library that is perfect
  - github.com/asdine/storm embedded database built upon bolt which makes persistence very easy
