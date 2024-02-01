@@ -74,7 +74,15 @@ func (app *Tobab) setTobabRoutes(r *gin.Engine) {
 			return
 		}
 
-		options, session, err := app.webauthn.BeginRegistration(u, webauthn.WithResidentKeyRequirement(protocol.ResidentKeyRequirementRequired))
+		authSelect := protocol.AuthenticatorSelection{
+			RequireResidentKey: protocol.ResidentKeyRequired(),
+			ResidentKey:        protocol.ResidentKeyRequirementRequired,
+			UserVerification:   protocol.VerificationPreferred,
+		}
+		conveyancePref := protocol.PreferNoAttestation
+
+		options, session, err := app.webauthn.BeginRegistration(u, webauthn.WithAuthenticatorSelection(authSelect), webauthn.WithConveyancePreference(conveyancePref))
+
 		pklog.With(
 			"options", options,
 			"session", session,

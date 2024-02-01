@@ -10,6 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gnur/tobab"
 	"github.com/gnur/tobab/storm"
+	"github.com/go-webauthn/webauthn/protocol"
 	"github.com/go-webauthn/webauthn/webauthn"
 )
 
@@ -58,9 +59,10 @@ func main() {
 	}
 
 	wconfig := &webauthn.Config{
-		RPDisplayName: cfg.Displayname,
-		RPID:          cfg.CookieScope,
-		RPOrigins:     []string{fqdn},
+		RPDisplayName:         cfg.Displayname,
+		RPID:                  cfg.CookieScope,
+		RPOrigins:             []string{fqdn},
+		AttestationPreference: protocol.PreferNoAttestation,
 	}
 
 	w, err := webauthn.New(wconfig)
